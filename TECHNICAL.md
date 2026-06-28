@@ -1,6 +1,6 @@
 # STA-PAN 技术文档
 
-本项目技术文档，供接手项目的开发者和 AI 阅读。涵盖完整的技术架构、API 路由、权限系统、下载体系、部署方案和数据库结构。
+本文档面向接手项目的开发者和 AI，涵盖完整架构、API 路由、权限系统、下载体系、PDF 预览、数据库、部署方案及运维。**所有敏感密钥均以占位符 `<xxx>` 标示，实际值见 `.env.local` 或对应平台控制台。**
 
 ---
 
@@ -8,24 +8,26 @@
 
 - [1. 项目概览](#1-项目概览)
 - [2. 技术栈与依赖](#2-技术栈与依赖)
-- [3. 项目结构与文件地图](#3-项目结构与文件地图)
-- [4. 认证体系](#4-认证体系)
-- [5. 权限系统](#5-权限系统)
-- [6. API 路由详细说明](#6-api-路由详细说明)
-- [7. 下载体系](#7-下载体系)
-- [8. 前端架构](#8-前端架构)
-- [9. 环境变量](#9-环境变量)
-- [10. 数据库](#10-数据库)
-- [11. 部署方案](#11-部署方案)
-- [12. 已知限制与改进方向](#12-已知限制与改进方向)
+- [3. 架构全图](#3-架构全图)
+- [4. 项目结构与文件地图](#4-项目结构与文件地图)
+- [5. 密钥清单与获取方式](#5-密钥清单与获取方式)
+- [6. 认证体系](#6-认证体系)
+- [7. 权限系统](#7-权限系统)
+- [8. 所有 API 路由](#8-所有-api-路由)
+- [9. 下载体系](#9-下载体系)
+- [10. PDF 预览体系](#10-pdf-预览体系)
+- [11. 前端架构](#11-前端架构)
+- [12. 数据库](#12-数据库)
+- [13. 部署方案](#13-部署方案)
+- [14. ECS 运维命令全集](#14-ecs-运维命令全集)
+- [15. 环境变量完整清单](#15-环境变量完整清单)
+- [16. 已知限制与改进方向](#16-已知限制与改进方向)
 
 ---
 
 ## 1. 项目概览
 
-**STA-PAN** 是成都七中科协的百度网盘文件共享平台，基于 **Next.js 16 + React 19 + AList + Supabase** 构建。
-
-核心架构：前端通过 Next.js API Route 调用 AList 的 REST API，AList 作为百度网盘的桥接层。管理员通过 Supabase 存储用户和配置，所有文件操作由 AList 代理转发到百度网盘。
+成都七中科协百度网盘文件共享平台。**Next.js 16 + React 19 + AList + PostgreSQL(ECS)**。
 
 ### 核心功能
 
@@ -35,8 +37,9 @@
 - ⬆️ 文件/文件夹上传
 - 🔒 三级角色（admin / manager / guest）+ 12 项权限位
 - 📋 正则文件级规则（匹配路径名/文件名）
-- 📊 操作日志 + IP 访问统计
+- 📊 操作日志 + IP 访问统计 + 在线用户
 - 🚫 IP 封禁管理
+- 📁 文件列表视图切换（列表/图标）+ 右键菜单
 
 ---
 
@@ -44,1081 +47,879 @@
 
 | 层 | 技术 | 版本 | 用途 |
 |---|---|---|---|
-| 框架 | Next.js | 16.1.6 | App Router + API Routes |
-| 前端库 | React | 19.2.3 | 单文件 SPA |
+| 前端框架 | Next.js | 16.1.6 | App Router, Turbopack |
+| 前端库 | React | 19.2.3 | 单体 SPA |
 | CSS | Tailwind CSS | 4.x | 暗色毛玻璃主题 |
-| 数据库 | Supabase (PostgreSQL) | - | 用户、设置、日志 |
-| 网盘桥接 | AList | - | 百度网盘 REST API 驱动 |
-| ZIP 打包 | archiver | 7.0.1 | 流式 ZIP 生成 |
-| 类型 | TypeScript | 5.x | 全项目类型覆盖 |
-
-`package.json` 核心依赖：
-
-```json
-{
-  "dependencies": {
-    "next": "16.1.6",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "@supabase/supabase-js": "^2.98.0",
-    "archiver": "^7.0.1",
-    "tailwindcss": "^4"
-  }
-}
-```
+| 数据库 | PostgreSQL 16 + PostgREST 14 | ECS | 兼容 Supabase API |
+| 网盘后端 | AList | - | 百度网盘 REST API 桥接 |
+| ZIP 打包 | archiver | 7.0.1 | 流式 ZIP |
+| PDF 渲染 | pdfjs-dist | 4.10.38 | 浏览器端 PDF |
+| 手势缩放 | @panzoom/panzoom | 4.6.2 | 双指缩放/拖拽 |
+| 测试 | @playwright/test | 1.60 | E2E 测试 |
+| 部署 | Vercel + ECS + PM2 | - | 前端 CDN + API 服务器 |
 
 ---
 
-## 3. 项目结构与文件地图
+## 3. 架构全图
+
+```
+用户 (pan.cdqzsta.tech — 未备案，纯 Vercel CDN)
+  │
+  ├── HTML/JS/CSS → Vercel CDN（全球边缘节点）
+  │
+  └── API 请求 → https://pan.tantantan.tech/pan/（已备案）
+                    │
+                    └── Nginx (ECS 成都，2C2G)
+                          │
+  ┌───────────────────────┼───────────────────────┐
+  │                       │                       │
+/pan/              /pdf-preview/              /db/
+Next.js:3000       alist /p/:5244         PostgREST:3100
+  │                       │                       │
+  ├── alist :5244         百度 CDN            PG :5432
+  └── PostgREST :3100                           │
+                                               bdpan
+```
+
+**关键延迟数据：**
+
+| 路径 | 之前（仅 Vercel） | 现在（ECS 中转） |
+|------|------------------|-----------------|
+| 文件列表 | Vercel→alist 400ms+ | ECS→alist <10ms |
+| PDF 数据 | 直连 alist 10s+ | ECS 同机 100Mbps，Nginx 缓存 2h |
+| 数据库 | Supabase 云 50ms+ | ECS 本地 <1ms |
+
+---
+
+## 4. 项目结构与文件地图
 
 ```
 baidu-pan-alist/
-├── .env.local                           # 环境变量（不提交 Git）
-├── next.config.ts                       # Next.js 配置
+├── .env.local                    # 所有密钥（⚠️ 不提交 Git）
+├── next.config.ts                # Next.js 配置 + 缓存头
 ├── package.json
-├── tsconfig.json
-├── CLAUDE.md                            # AI 工作指南
-├── README.md                            # 用户手册
-├── TECHNICAL.md                         # 本文档
+├── TECHNICAL.md
+│
+├── public/
+│   └── pdfjs/                    # 📄 PDF 阅读器（自部署）
+│       ├── viewer.html           # 自研阅读器（Panzoom + PDF.js）
+│       ├── panzoom.min.js        # 手势缩放库
+│       ├── pdf.min.mjs           # PDF.js 核心库
+│       └── pdf.worker.min.mjs    # PDF.js Worker
 │
 ├── src/
 │   ├── app/
-│   │   ├── layout.tsx                   # 根布局
-│   │   ├── page.tsx                     # ★★★★★ 前端全部逻辑（~3800行）
+│   │   ├── layout.tsx            # 根布局（引入 server-log）
+│   │   ├── page.tsx              # ★★★★★ 全部前端（~3800 行）
 │   │   └── api/
-│   │       ├── _auth.ts                 # Token 签发/验证
-│   │       ├── _auth-edge.ts            # Edge 鉴权（未使用）
-│   │       ├── login/route.ts           # 登录 / 游客
-│   │       ├── users/route.ts           # 用户管理（admin 专属）
-│   │       ├── global-settings/route.ts # 公开配置
-│   │       ├── admin-stats/route.ts     # 管理统计
-│   │       ├── file-permissions/route.ts # 文件权限规则
-│   │       ├── alist/route.ts           # ★ AList 代理核心
-│   │       ├── alist-download/route.ts  # 单文件下载
-│   │       ├── alist-upload/route.ts    # 文件上传
-│   │       ├── alist-token/route.ts     # AList 登录
-│   │       ├── alist-zip-preview/route.ts # ZIP 预览
-│   │       ├── alist-zip-download/route.ts # ★ ZIP 打包
+│   │       ├── _auth.ts          # JWT 签发/验证（HMAC-SHA256）
+│   │       ├── _auth-edge.ts     # (未用)
+│   │       ├── login/route.ts    # 登录 / 游客（返回 sessionId）
+│   │       ├── users/route.ts    # 用户管理（admin 专属）
+│   │       ├── global-settings/route.ts  # 公开配置
+│   │       ├── admin-stats/route.ts      # 统计（支持 source=ecs|supabase）
+│   │       ├── file-permissions/route.ts # 文件权限规则 + 正则预览
+│   │       ├── alist/route.ts           # ★ AList 代理
+│   │       ├── alist-download/route.ts  # 下载（记录成功/失败）
+│   │       ├── alist-upload/route.ts    # 上传
+│   │       ├── alist-token/route.ts     # AList JWT 缓存
+│   │       ├── alist-zip-preview/route.ts # ZIP 目录计数
+│   │       ├── alist-zip-download/route.ts # ★ ZIP 流式打包（T1/T2/T3 降级）
 │   │       ├── alist-batch-list/route.ts  # T2 文件清单
-│   │       ├── alist-batch-download/route.ts # 归档（备用）
-│   │       ├── log-action/route.ts      # 操作日志写入
-│   │       └── track/route.ts           # 访问记录写入
-│   ├── lib/
-│   │   └── users.ts                     # ★★★★★ 核心库
-│   ├── data/
-│   │   └── changelog.json               # 版本日志
-│   └── types/
-│       └── archiver.d.ts                # archiver 类型
-└── docs/
-    └── baidu-pan-alist-tech.md          # 早期文档
+│   │       ├── log-action/route.ts   # 操作日志
+│   │       ├── track/route.ts        # 访问记录
+│   │       └── debug-logs/route.ts   # 服务端日志（admin 查看）
+│   └── lib/
+│       ├── users.ts              # ★★★★★ 用户/权限/设置 CRUD
+│       ├── pg-adapter.ts         # ★ PostgREST 适配器 + 双写
+│       ├── alist-utils.ts        # 递归列文件（search+BFS 双策略）
+│       └── server-log.ts         # 服务端日志缓存
+│
+├── e2e/                          # Playwright 测试
+│   ├── login.spec.ts
+│   └── app.spec.ts
+│
+└── nginx/
+    └── 403.html                  # 自定义错误页（含 IP 变量替换）
 ```
 
 ---
 
-## 4. 认证体系
+## 5. 密钥清单与获取方式
 
-### 4.1 Token 机制
+| 密钥 | 用途 | 获取位置 |
+|------|------|----------|
+| `ADMIN_TOKEN_SECRET` | JWT 签名密钥 | `.env.local` → 用 `openssl rand -hex 32` 生成 |
+| `PG_DB_TOKEN` | PostgREST 访问令牌 | `.env.local` + Nginx `/db/` 配置（两处一致） |
+| `ALIST_PASSWORD` | AList 管理员密码 | AList 管理面板 `https://pan.tantantan.tech:5244` |
+| `NEXT_PUBLIC_ALIST_URL` | AList 公网地址 | 固定 `https://pan.tantantan.tech` |
+| `NEXT_PUBLIC_API_BASE` | API 转发地址 | 固定 `https://pan.tantantan.tech/pan` |
+| `PG 密码` | 数据库密码 | 宝塔 → 数据库 → PgSQL → bdpan |
+| `SUPABASE_BACKUP_URL` | 双写备份地址 | Supabase Dashboard → Settings → API |
+| `NEXT_PUBLIC_SUPABASE_URL` | PostgREST 网关 | 固定 `https://pan.tantantan.tech/db` |
+| Vercel Token | Vercel API | Vercel Dashboard → Settings → Tokens |
 
-自研 Token，签名算法 HMAC-SHA256，位置 `src/app/api/_auth.ts`。
-
-**签发 `signToken(username, role, durationHours?)`**：
-
-1. 计算有效期 `ttl = (durationHours || 8) * 3600000`
-2. 构造 payload `{ exp: Date.now() + ttl, username, role }`
-3. JSON → base64url 编码 → payloadB64
-4. `HMAC-SHA256(secret, payloadB64)` → hex 签名
-5. 拼接 `{payloadB64}.{hex签名}`
-
-**验证 `verifyToken(authHeader)`**：
-
-1. 从 `Bearer xxx` 分割取出 token
-2. 按 `.` 分割为 payloadB64 + sig
-3. 重新 HMAC 验签 → 解码 payload JSON
-4. 检查 `Date.now() > exp`，过期返回 null
-5. 返回 `{ username, role }`
-
-签名密钥来自环境变量 `ADMIN_TOKEN_SECRET`，默认 `'default-secret-change-me'`（务必修改）。
-
-### 4.2 角色
-
-```typescript
-type Role = 'admin' | 'manager' | 'guest'
-```
-
-### 4.3 登录流程
-
-```
-POST /api/login { username, password }
-  → findUser() 从 Supabase bdpan_users 验证密码
-  → signToken(role="admin"|"manager")
-  → 返回 { token, role, username, permissions }
-
-POST /api/login { guest: true }
-  → check enableGuestMode
-  → signToken(role="guest")
-  → 返回 { token, role="guest", username="guest", permissions }
-```
-
-IP 封禁检查在登录前：`checkIpBanned(clientIp)`。
+**⚠️ 密码存储**：`bdpan_users` 表目前为明文密码。改进方向见 [#16](#16-已知限制与改进方向)。
 
 ---
 
-## 5. 权限系统
+## 6. 认证体系
 
-### 5.1 全局权限位（`UserPermissions`）
+### Token（`_auth.ts`）
+
+自研 JWT，HMAC-SHA256，payload base64url：
+
+```
+signToken(username, role, durationHours)
+  → base64url({ exp, username, role }) + "." + HMAC(secret)
+
+verifyToken("Bearer xxx.yyy")
+  → decode → check exp → { username, role }
+```
+
+secret = `ADMIN_TOKEN_SECRET`（`.env.local`），**不允许用默认值**。
+
+### sessionId
+
+登录时 `crypto.randomUUID()` 生成，`localStorage.setItem('BDPAN_SESSION', sessionId)`。后续所有 `logUserAction` 携带。
+
+### fingerprint
+
+游客首次登录时生成 `${timestamp}-${random6}`，`localStorage.setItem('BDPAN_FINGERPRINT', fingerprint)`。用于区分不同游客。
+
+---
+
+## 7. 权限系统
+
+### 全局权限位（12 项）
 
 ```typescript
 interface UserPermissions {
     view: boolean;         // 浏览子目录
-    search: boolean;       // 搜索文件
-    download: boolean;     // 下载文件
-    upload: boolean;       // 上传文件
-    delete: boolean;       // 删除文件
+    search: boolean;       // 搜索
+    download: boolean;     // 下载
+    upload: boolean;       // 上传
+    delete: boolean;       // 删除
     rename: boolean;       // 重命名
-    preview: boolean;      // 在线预览
-    setting: boolean;      // 自定义 AList 连接
-    controlFile?: boolean; // 管理文件权限规则
-    basePath?: string;     // 用户根目录映射（虚根）
-
-    // 日志查看权限（4 个独立开关，用于非 admin 查看管理面板）
-    viewStats?: boolean;        // 实时数据审计
-    viewActionLogs?: boolean;   // 操作日志
-    viewIpStats?: boolean;      // IP 统计（只读）
-    viewDownloadLogs?: boolean; // 下载明细
+    preview: boolean;      // 预览
+    setting?: boolean;     // 自定义 AList 连接
+    controlFile?: boolean; // 文件权限规则管理
+    basePath?: string;     // 用户根目录映射（虚根隔离）
+    viewStats?: boolean;         // 数据审计面板
+    viewActionLogs?: boolean;    // 操作日志面板
+    viewIpStats?: boolean;       // IP 统计面板（只读）
+    viewDownloadLogs?: boolean;  // 下载明细面板
 }
 ```
 
-**默认值**：
+### 默认值
 
-| 权限位 | admin | manager | guest |
-|--------|-------|---------|-------|
-| view/search/download | ✅ | ✅ | ✅ |
-| upload | ✅ | ✅ | ❌ |
-| delete/rename | ✅ | ✅ | ❌ |
-| preview | ✅ | ✅ | ✅ |
+| 权限 | admin | manager | guest |
+|------|-------|---------|-------|
+| view/search/download/preview | ✅ | ✅ | ✅ |
+| upload/delete/rename | ✅ | ✅ | ❌ |
 | setting | ✅ | ❌ | ❌ |
 | controlFile | ✅ | ✅ | ❌ |
-| viewStats/viewActionLogs/viewIpStats/viewDownloadLogs | ✅（但绕过检查）| ❌ | ❌ |
+| 4 日志权限 | ✅（绕过） | ❌ | ❌ |
 
-admin 角色直接返回全部权限，**不经过文件权限规则检查**。manager/guest 的权限由 `getUserPermissions()` 从 Supabase 设置中读取，可在管理面板修改。
+admin 角色**绕过所有文件级权限规则**，直接返回全部权限。
 
-### 5.2 文件级权限规则
+### 文件级规则（3 种匹配模式）
 
 ```typescript
 interface FilePermissionRule {
     id: string;
-    path: string;                    // 路径或正则表达式
+    path: string;
     pathType: 'file' | 'dir' | 'regex';
-    regexScope?: 'name' | 'path';   // 仅 regex 模式有效
-    groupName?: string;              // 分组标签
-    users: string[];                 // 适用用户
+    regexScope?: 'name' | 'path';  // 仅 regex 有效
+    users: string[];
     deny: Partial<Record<FilePermissionAction, boolean>>;
 }
 ```
 
-**匹配函数 `ruleMatchesTarget(rule, targetPath)`** （`lib/users.ts:91-109`）：
+| 类型 | 匹配逻辑 |
+|------|----------|
+| `file` | `normalizePath(target) === normalizePath(rule.path)` |
+| `dir` | `target.startsWith(rule.path + '/')` 或精确匹配 |
+| `regex` | `new RegExp(rule.path, 'i').test(testTarget)` |
+
+`regexScope`：
+- `'path'`（默认）：测试完整路径 `/sta/未来梦/Vol.35.pdf`
+- `'name'`：仅测试文件名 `Vol.35.pdf`
+
+### 正则预览
+
+管理面板输入正则 → `POST /api/file-permissions { action:'preview' }` → 后端调 AList `/api/fs/search` 或 BFS 遍历目录树 → 返回匹配文件列表和数量。
+
+### 生效链路
 
 ```
-rule.pathType === 'file':
-  → 精确匹配: normalizePath(target) === normalizePath(rule.path)
-
-rule.pathType === 'dir':
-  → 前缀匹配: target === rulePath || target.startsWith(rulePath + '/')
-
-rule.pathType === 'regex':
-  → 正则匹配:
-    if regexScope === 'name':
-      → 提取 target 的文件名部分（split('/').pop()）做正则测试
-    else:
-      → 完整路径做正则测试
-    new RegExp(rule.path, 'i').test(testTarget)
-    （无效正则返回 false）
+bdpan_settings.filePermissionRules
+  → alist/route.ts: getEffectivePermissionsForPathCached()
+    → 列表每个 item 附加 perms（delete/rename/upload/download/preview）
+  → alist-download/route.ts: 下载前检查
+  → alist-zip-download/route.ts: ZIP 打包前预扫描
+  → page.tsx 前端: openAlistItem/alistNavigate 读取 item.perms
 ```
 
-**生效链路**：
+### IP 封禁
 
-```
-文件权限规则存储在 Supabase
-  → alist/route.ts 列表时逐文件调用 getEffectivePermissionsForPathCached
-    → 计算每个 item.perms（download/preview/delete/rename/upload）
-    → 附加到文件列表返回给前端
-  → alist-download/route.ts 下载前单独检查
-  → alist-zip-download/route.ts 打包前预扫描过滤
-  → page.tsx 前端 UI 拦截
-```
-
-### 5.3 IP 封禁
-
-`lib/users.ts` 读取 `settings.bannedIps`（`Record<string, number>`），key 为 IP 地址，value 为封禁到期时间戳。
-
-`checkIpBanned(ip)` 在所有 API 路由入口调用：
-
-```typescript
-async function checkIpBanned(ip: string): Promise<boolean> {
-    if (!supabase) return false;
-    const settings = await getSettings();
-    const now = Date.now();
-    const bans = settings.bannedIps || {};
-    // 清理过期封禁
-    for (const [ipKey, expiry] of Object.entries(bans)) {
-        if (expiry <= now) delete bans[ipKey];
-    }
-    await updateSettings({ bannedIps: bans });
-    return bans[ip] && bans[ip] > now;
-}
-```
+`settings.bannedIps`（`Record<IP, expiryTimestamp>`）。每次 API 调用在入口处 `checkIpBanned()` 检查——封禁 IP 返回 403，同时写入 `view_logs.blocked=true`。
 
 ---
 
-## 6. API 路由详细说明
+## 8. 所有 API 路由
 
-所有路由均为 Next.js App Router，路径前缀 `/api`，默认 `force-dynamic`。
+| 路由 | 方法 | 鉴权 | 说明 |
+|------|------|------|------|
+| `/api/alist` | POST | Bearer | AList 代理（list/get/search/mkdir/remove/rename）|
+| `/api/alist-download` | GET | token | 下载（记录成功/失败日志 + 文件大小）|
+| `/api/alist-upload` | PUT | Bearer | 文件上传 |
+| `/api/alist-token` | POST | Bearer | AList JWT 获取 |
+| `/api/alist-zip-preview` | GET | token | ZIP 目录文件计数 |
+| `/api/alist-zip-download` | GET | token | 流式 ZIP 打包（3 层降级）|
+| `/api/alist-batch-list` | GET | token | T2 文件清单（含 sign）|
+| `/api/login` | POST | 无 | 登录/游客（返回 sessionId）|
+| `/api/users` | GET/POST | Bearer | 用户管理（admin）|
+| `/api/global-settings` | GET | 无 | 公开配置（下载模式/公告）|
+| `/api/admin-stats` | GET | Bearer | 统计（?source=ecs\|supabase）|
+| `/api/file-permissions` | GET/POST | Bearer | 文件权限规则 + 正则预览 |
+| `/api/log-action` | POST | 无 | 操作日志写入 |
+| `/api/track` | POST | 无 | 访问记录写入 |
+| `/api/debug-logs` | GET | Bearer | 服务端日志（admin 专属）|
 
-### 6.1 AList 代理 — `/api/alist`
+### 管理面板数据源切换
 
-**方法**：POST | **鉴权**：Bearer Token
+管理面板标题栏按钮切换统计数据的读取来源：
+- `📡 ECS`（绿色）— 从 ECS PostgreSQL 读取（主库）
+- `☁️ Supabase`（蓝色）— 从 Supabase 读取（备份）
 
-核心路由，封装了与 AList 的大部分通信。
+前端发 `?source=ecs|supabase` 参数到 `/api/admin-stats`。写入始终同时写入 ECS 和 Supabase（双写），不受此设置影响。
 
-**请求体**：
+---
 
-```json
-{ "action": "list|get|search|mkdir|remove|rename|list_archive|archive",
-  "path": "/sta/folder",
-  "name": "file.txt", "names": ["a.txt", "b.txt"],
-  "newName": "newname.txt", "dir_name": "newfolder",
-  "parent": "/sta", "keywords": "搜索词", "scope": 0|1 }
-```
+## 9. 下载体系
 
-**各 action 详解**：
+### 单文件（5 选项）
 
-| action | AList API | 权限检查 | 附加处理 |
-|--------|-----------|----------|----------|
-| `list` | POST `/api/fs/list` | view/download/preview | **权限过滤**：逐文件调用 `getEffectivePermissionsForPathCached`，无权限文件移除。**basePath 剥离**：可见路径去掉用户虚根前缀。**附加 `current_perms`**：当前目录的 delete/rename/upload/search 权限 |
-| `get` | POST `/api/fs/get` | view/download/preview | 返回文件原始信息 |
-| `search` | POST `/api/fs/search` | search | **权限过滤**：搜索结果按 filePermissionRules 过滤 |
-| `mkdir` | POST `/api/fs/mkdir` | upload | - |
-| `remove` | POST `/api/fs/remove` | delete | 额外检查每个子路径的 delete 权限 |
-| `rename` | POST `/api/fs/rename` | rename | - |
-| `list_archive` | POST `/api/fs/other` | - | 查看压缩包目录 |
-| `archive` | POST `/api/fs/other` | - | **未生效**，调用 alist archive 会报错 |
+| # | 名称 | 路径 | 下载日志 | 速度 |
+|---|------|------|----------|------|
+| ① 阿里云 ECS | `/api/alist-download`（服务端 UA） | ✅ 成功/失败+文件大小 | 经过 Vercel/ECS 中转 |
+| ② Cloudflare | `cf.ryantan.fun/?url=raw_url` | ❌ 只记点击 | CDN 直连，最快 |
+| ③ 复制直链 | `navigator.clipboard.writeText(raw_url)` | ❌ 只记点击 | 需搭配 IDM |
+| ④ Vercel 中转 | `/api/alist-download`（备用） | ✅ 同 ① | 同上 |
+| ⑤ 直链下载 | `window.open(alistBase/p/...?sign=...)` | ❌ 只记点击 | 直连 alist，满速 |
 
-**自定义配置**：前端可选传 `x-alist-url`、`x-alist-username`、`x-alist-password` 头覆盖全局 AList 连接（⚙️ 设置功能）。同时 `ALIST_CUSTOM_CONFIG` 在 localStorage 中持久化。
+选项 ②③⑤ 由浏览器接管下载过程，服务端无法追踪最终的下载成功/失败。
+选项 ①④ 走 `/api/alist-download`，会记录 `下载 - ECS - 成功` 或 `下载 - ECS - 失败` 及文件大小。
 
-### 6.2 单文件下载 — `/api/alist-download`
+### 批量下载
 
-**方法**：GET | **鉴权**：token 参数或 Bearer header
-
-**参数**：`?path=xxx&token=xxx&preview=1&c=xxx`
-
-| 参数 | 说明 |
-|------|------|
-| `path` | 文件路径 |
-| `token` | 用户 JWT（查询参数） |
-| `preview` | 1 表示预览（只返回内容），不设则触发下载 |
-| `c` | base64 编码的自定义配置 |
-
-**权限**：
-- `preview=1` && `pathPerms.preview === false` → 403 拒绝
-- `preview=0` && `pathPerms.download === false` → 403 拒绝
-
-**下载逻辑**：
-1. 读取 AList 文件信息（`/api/fs/get`，3 次重试）
-2. 若 `raw_url` 包含 `baidupcs` 或 `baidu.com` → 添加 `User-Agent: pan.baidu.com` 从百度 CDN 下载
-3. 否则 → 从 AList `/p/` 端点下载（不额外处理 UA）
-
-### 6.3 文件上传 — `/api/alist-upload`
-
-**方法**：PUT | **鉴权**：Bearer Token
-
-**Header**：`File-Path`（URL 编码的目标路径）、`Authorization`、`Content-Type`、`Content-Length`
-
-**权限**：`upload`
-
-**流程**：
-1. 获取 AList Token
-2. 解析 `File-Path`，校验 basePath 和文件权限
-3. 调用 AList `/api/fs/put` 上传
-
-### 6.4 ZIP 打包下载 — `/api/alist-zip-download`
-
-**方法**：GET | **鉴权**：token | **导出**：`maxDuration = 300`（Vercel Pro 需要）
-
-**参数**：`?paths=["/folder1","/folder2"]&token=xxx`
-
-**核心流程**：
+选中文件/文件夹 → 点击「批量下载」→ 弹出 T1/T2 选择弹窗：
 
 ```
-Phase 1 — 预扫描:
-  for each path:
-    get（文件或目录判断）
-    if 目录:
-      递归 list 所有子文件（getAllFilesInDir + sign）
-      逐文件过 getEffectivePermissionsForPath
-      被禁文件跳过（totalSkipped++）
-    if 文件:
-      单文件加入列表
-    响应头 X-Skipped-Files = totalSkipped
+📦 批量下载 — 2 个文件夹 + 1 个文件
+┌─────────────────────────────┐
+│ 📦 打包下载 (ZIP)           │ → T1
+│ ⚡ 逐个下载 (直链满速)       │ → T2
+└─────────────────────────────┘
+```
 
-Phase 2 — 流式打包:
-  archiver('zip', { level: 0 })  // 不压缩，只打包
-  6 个并发下载每个文件（3 层降级）
+#### T1 ZIP 打包
+
+**后端**（`alist-zip-download/route.ts`）：
+
+```
+Phase 1 — 预扫描：
+  for each 选中路径：
+    → get（判断是文件还是目录）
+    → 列目录（search 快速路径 → BFS 降级）
+    → 逐文件过 getEffectivePermissionsForPath
+    → 被禁文件跳过（记录到 X-Skipped-Files 头）
+
+Phase 2 — 流式打包（archiver，zlib:0 不压缩）:
+  6 并发下载每个文件，3 层降级：
+    T1: fetch(alist /p/{path}?sign={sign})  ← 最快，内网直连
+    T2: get → raw_url → fetch(百度 CDN, UA)  ← 跨代理降级
+    T3: 跳过（统计到 totalFailed）
   ReadableStream → 浏览器
 ```
 
-**三层降级**：
+**控制台输出（ECS/Vercel 日志）**：
 
-| 层级 | 策略 | 实现 |
-|------|------|------|
-| T1： `/p/` 直链 | `fetch(ECS/p/path?sign=sign, {Authorization})` | 最快，AList 本机 |
-| T2： 百度 CDN | `get → raw_url → fetch(raw_url, {UA: 'pan.baidu.com'})` | 跨代理降级 |
-| T3： 跳过 | 前两者均失败 | 统计入 `totalFailed` |
-
-控制台输出：`[ZIP] 完成 → T1直链:42 T2降级:3 T3保底:2 失败:0`
-
-### 6.5 ZIP 预览 — `/api/alist-zip-preview`
-
-**方法**：GET
-
-返回目录文件计数的轻量 API：
-
-```json
-{ "dirs": [{"name": "未来梦", "fileCount": 47}],
-  "message": "[ZIP] 开始生成 ZIP 文件..." }
+```
+[ZIP:T1首选] 开始打包, 2 个路径 → /p/ 直链优先
+[ZIP] 获取目录 未来梦, 共 47 个文件
+[ZIP] 完成 → T1直链:42 T2降级:3 T3保底:2 失败:0
 ```
 
-前端用于显示 "X 个目录，共 Y 个文件"。
+**前端**：`alistBatchDownloadFolders()` → 预览计数 → 下载 ZIP → 提示 `⚠️ X 个文件因权限策略未包含`。
 
-### 6.6 批量文件清单 — `/api/alist-batch-list`
+#### T2 逐个直链
 
-**方法**：GET
+**后端**（`alist-batch-list/route.ts`）：列文件清单（path+sign+size+relativePath），逐文件权限过滤。
+**前端**（`alistBatchDownloadT2()`）：逐个创建 `<a>` 标签触发下载，间隔 600ms（桌面）/ 2000ms（移动端）。
 
-T2 逐个下载使用，返回文件直链清单：
+---
 
-```json
-{ "files": [
-    {"name": "a.pdf", "path": "/sta/a.pdf", "sign": "eyJleH...",
-     "size": 1048576, "relativePath": "未来梦/a.pdf"}
-  ],
-  "totalFiles": 47, "totalSize": 10485760, "skipped": 3 }
+## 10. PDF 预览体系
+
+### 技术路线（v4.0 完全重写）
+
+```
+page.tsx loadPreviewContent()
+  → fetchAlist({action:'get'}) 获取 sign
+  → 用 sessionStorage 传 URL：key = 'pdf_'+Date.now()
+  → iframe src = viewer.html?key=xxx
+  → viewer.html 读取 sessionStorage，removeItem（用完即删）
+  → PDF.js 渲染（300% DPI，滑块可调清晰度）
+  → Panzoom 处理双指缩放/拖拽/Ctrl+滚轮
+  → Canvas 缓存 12 页 + 预渲染后续 4 页
 ```
 
-每个文件已过权限检查（`download === false` 跳过）。
+### PDF 数据流
 
-### 6.7 归档（备用）— `/api/alist-batch-download`
-
-**状态**：未生效。原计划调用 AList `${url}/api/fs/other {method:'archive', paths:[...]}` 让 AList 服务器端打包，经测试 AList 此功能不稳定，代码保留备用。
-
-### 6.8 登录 — `/api/login`
-
-**方法**：POST | **无鉴权**（本身即登录）
-
-```json
-// 常规登录
-{ "username": "admin", "password": "xxx" }
-// 游客登录
-{ "guest": true }
+```
+浏览器 → https://pan.tantantan.tech/pdf-preview/{path}?sign={sign}
+  → Nginx:
+    - proxy_pass → alist :5244/p/
+    - Referer 检查（仅 *.tantantan.tech 和 localhost）
+    - proxy_hide_header Content-Disposition, add_header inline
+    - proxy_cache：首次拉取后缓存 2h 到 /tmp/nginx_pdf_cache
+    - 禁止浏览器缓存 Cache-Control: no-store
 ```
 
-1. 检查 `checkIpBanned` → 封禁 IP 拒绝
-2. 读取全局配置 `sessionDurationHours`（默认 8h）
-3. 调用 `signToken(role, durationHours)`
-4. 返回 `{ token, role, username, permissions }`
+### viewer.html 交互
 
-### 6.9 用户管理 — `/api/users`
-
-**方法**：GET / POST | **鉴权**：仅 admin
-
-| action | 参数 | 说明 |
-|--------|------|------|
-| GET | - | 返回 `{ users, settings }` |
-| `add` | `{ username, password, role }` | 添加用户 |
-| `remove` | `{ username }` | 删除用户 |
-| `updateRole` | `{ username, role }` | 修改角色 |
-| `updateSettings` | `{ settings }` | 更新全局设置 |
-| `changeAdminPassword` | `{ password }` | 修改管理员密码 |
-| `updatePermissions` | `{ username, permissions }` | 更新用户权限位 |
-
-### 6.10 全局设置（公开）— `/api/global-settings`
-
-**方法**：GET | **无鉴权**
-
-公开配置接口，返回下载模式、公告等。无敏感信息。
-
-### 6.11 管理统计 — `/api/admin-stats`
-
-**方法**：GET | **鉴权**：admin 或日志查看权限
-
-**鉴权逻辑**：
-
-```typescript
-if (user.role !== 'admin') {
-    const perms = await getUserPermissions(user.username, user.role);
-    if (!perms.viewStats && !perms.viewActionLogs && !perms.viewIpStats && !perms.viewDownloadLogs) {
-        return 401;
-    }
-}
-```
-
-**返回内容**：
-- `totalPanVisits` — 总访问次数
-- `past24hDownloads` / `totalDownloads` — 下载次数
-- `channelStats` — `{ ecs: { past24h, total, logs[] }, cf: ..., raw: ..., vercel: ..., direct302: ..., other: ... }`
-- `recentActions` — 全量操作日志（非 admin 过滤 admin 操作）
-- `topIps` — IP 排行（前 30）
-- `viewLogs` / `allDownloadLogs` — 详细记录
-
-### 6.12 文件权限规则 — `/api/file-permissions`
-
-**方法**：GET / POST | **鉴权**：`controlFile` 权限
-
-| 操作 | 说明 |
+| 操作 | 效果 |
 |------|------|
-| GET | 返回 `{ users, rules }`。manager 只能看到自己有权管理 |
-| POST `{ action: 'preview', pattern, scopePath, regexScope }` | **正则预览**：遍历目录树，用正则过滤，返回匹配的文件列表 |
-| POST `{ rules: [...] }` | **保存规则**：更新/创建/删除权限规则 |
+| 双指捏合 | Panzoom 缩放 |
+| 单指拖拽 | 缩放后平移 |
+| Ctrl+滚轮 | 缩放 |
+| 滚轮（非 Ctrl）| 无操作（防止误翻页）|
+| ← → ↑ ↓ | 翻页 |
+| + / - | 缩放 |
+| F | 切换全屏/工具栏 |
+| Esc | 退出全屏 |
+| 清晰度滑块 | 调整渲染 DPI（300%/200%/150%/100%）|
+| 页码输入 | 跳转到指定页 |
 
-**正则预览**调用 AList `/api/fs/search`（需 alist 已建搜索索引），或降级遍历目录树。
+### 防盗措施
 
-### 6.13 操作日志 — `/api/log-action`
-
-**方法**：POST
-
-**请求体**：`{ username, action_type, action_item }`
-
-**处理**：
-1. 提取客户端 IP（`x-forwarded-for`）
-2. 通过 `ip-api.com` 查询 IP 定位（国家/省份/城市）
-3. 插入 Supabase `bdpan_action_logs`
-
-### 6.14 访问追踪 — `/api/track`
-
-**方法**：POST
-
-**请求体**：`{ username, time, ip, country, region, city, device, source }`
-
-插入 Supabase `view_logs`，来源固定为 `'pan'`。
+| 层 | 措施 |
+|----|------|
+| 地址栏 | URL 不暴露 sign，用 sessionStorage key |
+| Referer | Nginx 检查，非白名单域名 403 |
+| 缓存 | 浏览器强制 no-store |
+| CDN 嗅探 | 响应头 `Content-Disposition: inline`（不在新窗口下载）|
 
 ---
 
-## 7. 下载体系
+## 11. 前端架构
 
-### 7.1 单文件下载（5 种方式）
+`page.tsx`：单文件组件 ~3800 行，50+ `useState`。
 
-百度网盘文件弹出「百度网盘文件下载」对话框，5 个按钮：
+### 视图切换
 
-| # | 名称 | 按钮色 | 技术路径 | 特点 |
-|---|------|--------|----------|------|
-| ① | 阿里云 ECS | 粉色 `g-pink` | `/api/alist-download` → Vercel 代理 → UA 注入 | 手机首选，自动处理 UA |
-| ② | Cloudflare | 蓝色 `g-blue` | `fetchAlist get` → `cf.ryantan.fun/?url=raw_url` | 海外加速，不耗服务器流量 |
-| ③ | 复制直链 | 绿色 `g-emerald` | `fetchAlist get` → clipboard `raw_url` | PC+IDM 极速 |
-| ④ | Vercel 中转 | 粉色 `text-pink` | `/api/alist-download`（类似 ①） | 备用 |
-| ⑤ | 直链下载 | 青色 `g-cyan` | `window.open(alistBase/p/path?sign=sign)` | 同步 URL，不等待后端，不拦截 |
+工具栏 `🖼️` / `📋` 按钮切换列表/图标视图。图标视图支持图片缩略图（alist `thumb` 字段→百度 CDN 小图）。
 
-**前端权限检查**：
+### 右键菜单
+
+图标模式下右键 → 弹出菜单：打开/预览、下载、重命名、删除（按权限显示）。
+
+### 关键函数
+
+| 函数 | 行号（约）| 说明 |
+|------|-----------|------|
+| `fetchAlist()` | 352 | AList API 封装 |
+| `logUserAction()` | 342 | 操作日志（sessionId+fingerprint+status）|
+| `openAlistItem()` | 881 | 文件点击决策 |
+| `alistBatchDownload()` | 992 | 批量下载入口（分离文件/文件夹）|
+| `alistBatchDownloadFolders()` | 1047 | T1 ZIP 打包 |
+| `alistBatchDownloadT2()` | 1030 | T2 逐个下载 |
+| `fetchAdminData()` | 1409 | 管理面板数据（?source= 参数）|
+| `submitFilePermissionDraft()` | 1472 | 文件权限规则保存 |
+
+### 在线用户管理
+
+管理面板顶部 `🟢 在线: N 人` 按钮 → 弹出用户列表。算法（`admin-stats/route.ts`）：
+
+1. 取 `bdpan_action_logs` 最近 1h 内的 `action_type='登录'` 记录
+2. 过滤掉有 `action_type='登出'` 且登出时间 > 登录时间的用户
+3. 剩余用户去重 → 在线列表
+
+支持「强制登出」：写入一条 `登出 - 强制` 日志，用户下次 API 请求时被 verifyToken 拒绝。
+
+### 日志系统
+
+- `session_id` — 登录时 `crypto.randomUUID()` 生成，localStorage 存 `BDPAN_SESSION`
+- `fingerprint` — 游客登录时自动生成 `${timestamp}-${random6}`，localStorage 存 `BDPAN_FINGERPRINT`
+- `status` — `success` / `blocked` / `failed`，自动附加到 `action_type` 后缀
+- `logUserAction()` — 每次调用携带 sessionId + fingerprint，发送到 `/api/log-action`
+
+### Toast 消息
+
+页面顶部的消息条。30s 自动消失，新消息重置计时器，可手动 `✕` 关闭。
+- 绿色 = ✅ 成功、红色 = ❌ 失败、黄色 = ⚠️ 警告
+
+---
+
+## 12. 数据库
+
+### 架构
+
+```
+Primary: ECS PostgreSQL:5432 ← PostgREST:3100 ← Nginx /db/（X-DB-Token 鉴权）
+   ↓ 异步不阻塞（fire-and-forget）
+Backup: Supabase（可选，通过 SUPABASE_BACKUP_URL 控制）
+```
+
+**双写机制**（`lib/pg-adapter.ts`）：
 
 ```typescript
-// openAlistItem() - 点击文件
-if (!canDownload) → 拒绝
-if (item.perms.download === false) → 拒绝
-if (item.perms.preview === false && 是预览) → 拒绝
-
-// 预览弹窗下载按钮
-if (previewItemMeta.perms.download === false) → 拒绝, 关闭预览
+// 主写入
+const r = await pgFetch('POST', table, data);   // → ECS PostgREST
+// 异步备份（不等待，失败只打印 warn）
+backupWrite('POST', table, data);                // → Supabase
 ```
 
-### 7.2 批量下载
+备份写入时自动移除 ECS 独有的字段（`session_id`、`fingerprint`、`blocked`）以兼容 Supabase 表结构。
 
-选中文件/文件夹 → 点击「批量下载」→ 弹出选择弹窗：
+**读取只走 ECS**（Supabase 仅做灾备）。
 
-**T1 打包下载（ZIP）**：
-1. `GET /api/alist-zip-preview` → 获取文件计数
-2. `GET /api/alist-zip-download` → 流式 ZIP
+### 表结构
 
-**T2 逐个下载（直链）**：
-1. `GET /api/alist-batch-list` → 获取文件清单
-2. 前端逐个创建 `<a>` 标签触发下载
-3. 桌面间隔 600ms，移动端 2000ms
-4. 显示进度条 `⏳ 正在下载 5/47...`
+#### `bdpan_users`
 
-### 7.3 下载日志
+| 列 | 类型 | 说明 | 默认值 |
+|---|---|---|---|
+| id | bigint PK | 自增（GENERATED BY DEFAULT AS IDENTITY） | 序列 bdpan_users_id_seq |
+| username | text NOT NULL | 用户名（唯一） | - |
+| password | text NOT NULL | ⚠️ 明文密码 | - |
+| role | text NOT NULL | `admin`/`manager`/`guest` | - |
 
-`logUserAction` 函数携带 `status` 参数：
+初始化需手动插入 admin 用户。
 
-| status | action_type 后缀 | 使用场景 |
-|--------|-----------------|----------|
-| `success` | 无后缀 | 正常触发下载 |
-| `blocked` | ` - 被拦截` | 权限拦截 |
-| `failed` | ` - 失败` | 接口异常 |
+#### `bdpan_settings`
 
-所有下载入口（5 个按钮 + 批量 T1/T2）均在触发前记录日志。
+| 列 | 类型 |
+|---|---|
+| key | text PK，固定 `'global'` |
+| value | jsonb，存储完整的 `GlobalSettings` 接口 |
 
-### 7.4 ZIP 安全漏洞修复
-
-**漏洞**：通过打包下载上级目录可绕过子文件权限规则。
-
-**修复**：`alist-zip-download` 的预扫描阶段对每个子文件执行 `getEffectivePermissionsForPath`，被禁文件跳过。控制台日志 `[ZIP] secret: 跳过 3 个被禁止下载的文件`。前端通过 `X-Skipped-Files` 响应头显示 `⚠️ 已触发 X 个文件下载，Y 个因权限策略跳过`。
-
----
-
-## 8. 前端架构
-
-### 8.1 架构说明
-
-`page.tsx` 是 **单体 SPA 组件**，~3800 行，无 Next.js 页面路由分割。全部 UI 通过 React 条件渲染切换。
-
-### 8.2 状态管理
-
-约 50+ 个 `useState`，分类如下：
-
-| 类别 | 状态数 | 核心状态 |
-|------|--------|----------|
-| 认证 | 8 | `userToken, userRole, username, userPerms` （均持久化 localStorage） |
-| 登录表单 | 3 | `loginUsername, loginPassword, authError` |
-| 文件浏览 | 12 | `alistPath, alistFiles, alistLoading, alistSelected` |
-| 搜索 | 6 | `alistSearchKeyword, alistSearchScope, alistSearchResults` |
-| 上传 | 3 | `alistUploadFiles, alistUploading, uploadProgress` |
-| 预览 | 6 | `previewItemMeta, previewFile, previewText, previewLoading` |
-| 下载 | 10 | `alistDownloadModal, alistCopyLinkModal, batchModeModal, t2Progress` |
-| 管理 | 15+ | `showAdminPanel, adminUsers, adminSettings, adminStats` |
-| 权限 | 8+ | `showFilePermPanel, filePermRules, filePermDraft, regexPreview` |
-| UI | 6 | `theme, alistMsg, showManual, showChangelog` |
-
-### 8.3 关键函数
-
-| 函数 | 行号 | 作用 |
-|------|------|------|
-| `fetchAlist(body, headers?)` | 352 | 通用 AList 调用，注入认证+自定义配置 |
-| `getAlistBase()` | 356 | 获取当前 AList 地址 |
-| `alistListDir(path)` | 574 | 列出目录，重置搜索状态 |
-| `alistSearchFast()` | 710 | 多关键词搜索+去重+排序 |
-| `openAlistItem(item, path, provider)` | 881 | **文件点击决策中心**：权限检查 → 预览/下载 |
-| `alistProxyDownload(path, name)` | 909 | 代理下载（走 `/api/alist-download`）|
-| `alistDirectDownload(path, sign)` | 905 | 直链下载（本地 a 标签）|
-| `logUserAction(type, item, status, username?)` | 342 | 操作日志上报 |
-| `alistBatchDownload()` | 992 | 批量下载入口 |
-| `alistBatchDownloadFolders(folders)` | 1047 | T1 ZIP 打包 |
-| `alistBatchDownloadT2(folders, files)` | 1030 | T2 逐个下载 |
-| `fetchAdminData()` | 1355 | 拉管理面板数据 |
-| `submitFilePermissionDraft()` | 1472 | 保存文件权限规则 |
-
-### 8.4 文件操作决策树（`openAlistItem`）
-
-```
-点击文件
-├── 权限: canDownload === false → 拒绝
-├── 权限: item.perms.download === false → 拒绝
-├── isBaidu → 弹出 5 选 1 下载对话框
-├── isAliyun → 直接代理下载
-├── 可预览 → openPreview（下载按钮在预览弹窗内）
-└── 其他 → 直接下载
-```
-
-### 8.5 组件树
-
-```
-<Home>
-├── 登录页（未认证时：用户名/密码 + 游客按钮）
-└── 主应用（已认证）
-    ├── 头部 nav（角色/用户名/主题/管理/日志/权限/设置/说明/退出）
-    ├── Toast 消息 ✅❌⚠️（30秒自动关闭 + ✕手动）
-    │
-    ├── 文件浏览主区域
-    │   ├── 路径导航 + 工具栏
-    │   │   ├── 搜索框（本地/远程/快速 模式）
-    │   │   ├── 新建文件夹 / 上传 / 全选 / 批量下载
-    │   │   └── 刷新
-    │   ├── 文件列表（图标 + 名称 + 大小 + 时间 + 操作按钮）
-    │   └── 拖拽上传浮层
-    │
-    ├── 5 选 1 下载弹窗
-    ├── T1/T2 批量下载选择弹窗
-    ├── T2 底部进度条
-    ├── 预览弹窗（图片/视频/PDF/文本/Office）
-    ├── 管理面板
-    │   ├── 数据审计（按渠道下载量统计）
-    │   ├── IP 访问统计 + 封禁（admin 专属）
-    │   ├── 操作日志（带颜色标签 + 筛选）
-    │   ├── 安全设置（admin 专属）
-    │   ├── 全局设置（admin 专属）
-    │   └── 用户列表（admin 专属）
-    ├── 文件权限面板
-    │   ├── 规则编辑（路径/正则 + 用户 + 7 项权限）
-    │   └── 已有规则列表
-    └── 设置 / 更新日志 / 使用手册 弹窗
-```
-
-### 8.6 颜色主题
-
-支持暗色/亮色模式，通过 `theme: 'dark' | 'light'` 状态控制，持久化 localStorage。
-
-CSS 变量定义在 `layout.tsx` ??? 实际上在 `page.tsx` 的 `<style>` 标签和 Tailwind CSS 类中。
-
----
-
-## 9. 环境变量
-
-复制 `.env.example` 到 `.env.local`（不存在，需手动创建）：
-
-```bash
-# ====== AList ======
-NEXT_PUBLIC_ALIST_URL=https://pan.tantantan.tech:5245
-NEXT_PUBLIC_ALIST_URL_FALLBACK=https://frp-gap.com:37492
-ALIST_USERNAME=admin
-ALIST_PASSWORD=xxx
-ALIST_USERNAME_FALLBACK=
-ALIST_PASSWORD_FALLBACK=
-
-# ====== Supabase ======
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-
-# ====== Auth ======
-ADMIN_TOKEN_SECRET=<random-string-at-least-32-chars>
-
-# ====== Node (ECS only) ======
-NODE_OPTIONS=--max-old-space-size=1024
-```
-
----
-
-## 10. 数据库
-
-### 10.1 `bdpan_users` — 用户
-
-| 列 | 类型 | 说明 |
-|---|---|---|
-| id | int8 (PK) | 自增 |
-| username | text | 唯一用户名 |
-| password | text | 明文密码 |
-| role | text | `admin` / `manager` / `guest` |
-
-初始化需要手动插入 admin 用户。
-
-### 10.2 `bdpan_settings` — 全局设置
-
-| 列 | 类型 | 说明 |
-|---|---|---|
-| key | text (PK) | 固定 `'global'` |
-| value | jsonb | 完整 `GlobalSettings` 对象 |
-
-value 结构示例：
+`value` 结构示例：
 
 ```json
 {
   "enableGuestMode": true,
-  "permissions": { "username": { "view": true, "download": false } },
-  "filePermissionRules": [{
-    "id": "rule_1",
-    "path": "密码|未来梦",
-    "pathType": "regex",
-    "regexScope": "path",
-    "users": ["guest"],
-    "deny": { "download": true, "preview": true }
-  }],
+  "permissions": { "manager1": { "view": true, "download": false } },
+  "filePermissionRules": [{ "path": "密码", "pathType": "regex", ... }],
   "downloadChannel": "ecs",
-  "downloadModes": {
-    "ecs": "enabled", "cf": "enabled",
-    "raw": "enabled", "vercel": "disabled",
-    "direct302": "enabled"
-  },
+  "downloadModes": { "ecs": "enabled", "cf": "enabled", ... },
   "bannedIps": { "1.2.3.4": 1781300000000 },
-  "hideAlistButton": true,
-  "announcement": "公告内容",
   "sessionDurationHours": 8
 }
 ```
 
-### 10.3 `bdpan_action_logs` — 操作日志
+#### `bdpan_action_logs`
 
 | 列 | 类型 | 说明 |
 |---|---|---|
-| id | int8 (PK) | 自增 |
+| id | bigint PK | 序列 `bdpan_action_logs_id_seq` |
 | username | text | 操作者 |
-| action_type | text | 如 `"下载 - ECS - 被拦截"` |
-| action_item | text | 操作对象路径 |
-| ip | text | 操作者 IP |
-| location | text | IP 定位（国家 省份 城市） |
-| log_text | text | 完整描述 |
-| created_at | timestamptz | 默认 `now()` |
+| action_type | text | `下载 - ECS` / `下载 - ECS - 被拦截` / `登录` / `登录 - 失败` |
+| action_item | text | 操作对象（文件路径、用户名等）|
+| ip | text | 客户端 IP |
+| location | text | 地理定位 |
+| log_text | text | 完整描述文本 |
+| session_id | text | 会话 ID（`_auth` 第 24 行 UUID 生成）|
+| fingerprint | text | 游客指纹 |
+| created_at | timestamptz | JS 端 `new Date().toISOString()` 传入 |
 
-`action_type` 命名：
+`action_type` 命名规则：
+- 成功：`动作`（如 `下载 - ECS`、`浏览目录`）
+- 被拦截：`动作 - 被拦截`（如 `下载 - ECS - 被拦截`）
+- 失败：`动作 - 失败`（如 `登录 - 失败`）
 
-| 状态 | 格式 | 示例 |
-|------|------|------|
-| 成功 | `{动作}` | `下载 - ECS` |
-| 被权限拦截 | `{动作} - 被拦截` | `下载 - ECS - 被拦截` |
-| 操作失败 | `{动作} - 失败` | `删除 - 失败` |
-
-### 10.4 `view_logs` — 访问记录
+#### `view_logs`
 
 | 列 | 类型 | 说明 |
 |---|---|---|
-| id | int8 (PK) | 自增 |
+| id | bigint PK | 序列 `view_logs_id_seq` |
+| visit_time | timestamptz | JS 端传入 |
 | ip_address | text | 访客 IP |
 | username | text | 已登录则记录用户名 |
 | user_agent | text | 浏览器 UA |
-| country / region / city | text | 通过 ip-api.com 查询 |
-| page_source | text | 固定 `'pan'` |
-| visit_time | timestamptz | 默认 `now()` |
+| country/region/city | text | 地理位置 |
+| page_source | text | 固定 `'pan'`（管理面板查询时过滤）|
+| session_id | text | 会话 ID |
+| blocked | boolean DEFAULT false | IP 被封禁后的访问标记 |
+
+### 序列修复（常见问题）
+
+ECS 导入 CSV 后序列落后于 Max(id)，新写入时 ID 冲突：
+
+```bash
+sudo docker exec -it postgrest psql \
+  -c "SELECT setval('view_logs_id_seq', (SELECT MAX(id) FROM view_logs)); \
+       SELECT setval('bdpan_action_logs_id_seq', (SELECT MAX(id) FROM bdpan_action_logs));" 2>/dev/null \
+  || sudo docker run --rm --network host -e PGPASSWORD='<密码>' postgres:16-alpine psql \
+  -h 127.0.0.1 -U postgres -d bdpan \
+  -c "SELECT setval('view_logs_id_seq', (SELECT MAX(id) FROM view_logs)); \
+       SELECT setval('bdpan_action_logs_id_seq', (SELECT MAX(id) FROM bdpan_action_logs));"
+```
+
+### Docker 方式连数据库
+
+```bash
+sudo docker run --rm --network host -e PGPASSWORD='<密码>' postgres:16-alpine psql \
+  -h 127.0.0.1 -U postgres -d bdpan -c "<SQL>"
+```
 
 ---
 
-## 11. 外部平台说明
+## 13. 部署方案
 
-每个平台的本项目配置内容和管理职责。
+### 构建与依赖
 
-### 11.1 GitHub
-
-- **仓库地址**：`https://github.com/stacdqz/bd-pan`
-- **分支策略**：仅有 `main` 分支，直接推送
-
-**需维护的文件**：
-- 代码本身
-- `.gitignore`：包括 `.env.local`、`node_modules/`、`.next/`
-- 无 Actions CI/CD（部署通过 Vercel 自动触发）
-
-**工作流**：
-
-```bash
-git add .
-git commit -m "feat: xxx"
-git push
-# Vercel 自动构建部署到 pan.cdqzsta.tech
-```
-
-**注意事项**：
-- 国内网络可能无法直接 `git push` 到 GitHub（超时/断连），需使用代理
-
-```bash
-# 设置代理
-git config --global http.proxy http://127.0.0.1:你的代理端口
-git push
-# 取消代理
-git config --global --unset http.proxy
-```
-
-- 或用 SSH 方式（需配置 SSH key）：
-
-```bash
-git remote set-url origin git@github.com:stacdqz/bd-pan.git
-```
-
-### 11.2 Supabase
-
-- **管理地址**：`https://supabase.com/dashboard/project/xxxxx`
-- **用途**：认证无（自研 Token），仅用数据库
-
-**项目配置**：
-
-| 项 | 说明 |
-|----|------|
-| 数据库密码 | 项目创建时设定 |
-| `URL` | `https://xxx.supabase.co` |
-| `ANON_KEY` | 设置 → API → Project API keys |
-| 区域 | 建议选新加坡（靠近国内，延迟较低） |
-
-**表结构概览**（细节见 [第 10 章](#10-数据库)）：
-
-| 表名 | 用途 | 维护方式 |
-|------|------|----------|
-| `bdpan_users` | 用户账号 | 管理面板添加/删除，或手动 SQL |
-| `bdpan_settings` | 全局设置（单行） | 管理面板修改 |
-| `bdpan_action_logs` | 操作日志 | 自动写入，定期清理 |
-| `view_logs` | 访问记录 | 自动写入，定期清理 |
-
-**初始化步骤**（新项目）：
-1. 创建 Supabase 项目
-2. 在 SQL Editor 中执行以下建表语句：
-
-```sql
-CREATE TABLE bdpan_users (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    username text NOT NULL,
-    password text NOT NULL,
-    role text NOT NULL
-);
-INSERT INTO bdpan_users (username, password, role)
-VALUES ('admin', '你的密码', 'admin');
-
-CREATE TABLE bdpan_settings (
-    key text PRIMARY KEY,
-    value jsonb NOT NULL
-);
-INSERT INTO bdpan_settings (key, value)
-VALUES ('global', '{}');
-
-CREATE TABLE bdpan_action_logs (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    username text NOT NULL,
-    action_type text NOT NULL,
-    action_item text NOT NULL,
-    ip text,
-    location text,
-    log_text text,
-    created_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE view_logs (
-    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    ip_address text,
-    username text,
-    user_agent text,
-    country text, region text, city text,
-    page_source text,
-    visit_time timestamptz DEFAULT now()
-);
-```
-
-**安全配置**（重要）：
-- 在 Supabase Dashboard → Authentication → Policies 中，**必须禁用 RLS**（Row Level Security）或配置允许所有访问的策略（因为代码直接通过 `ANON_KEY` 调用 API，不经过 Supabase Auth）
-
-```
-RLS Status: Disabled  ✓
-```
-
-- 或在 `SQL Editor` 中执行：
-
-```sql
-ALTER TABLE bdpan_users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE bdpan_settings DISABLE ROW LEVEL SECURITY;
-ALTER TABLE bdpan_action_logs DISABLE ROW LEVEL SECURITY;
-ALTER TABLE view_logs DISABLE ROW LEVEL SECURITY;
-```
-
-### 11.3 AList 服务
-
-- **管理地址**：`https://pan.tantantan.tech:5245`
-- **部署位置**：成都 ECS，公网 5245 端口
-- **用途**：百度网盘 REST API 驱动，为 Next.js 提供文件操作能力
-
-**AList 管理配置**：
-
-| 配置项 | 值 | 说明 |
-|--------|-----|------|
-| 站点 URL | `https://pan.tantantan.tech:5245` | 必须与 `NEXT_PUBLIC_ALIST_URL` 一致 |
-| 用户名 | `admin` | 对应环境变量 `ALIST_USERNAME` |
-| 密码 | 在宝塔/AList 设置 | 对应环境变量 `ALIST_PASSWORD` |
-| 打包下载 | 启用（默认） | 用于 /api/fs/other method=archive |
-| 目录 | /sta | 百度网盘驱动的根目录指向 STA 的 `/sta` 路径 |
-
-**存储驱动**：
-
-```yaml
-# AList 管理面板 → 存储 → 百度网盘
-挂载路径: /sta
-驱动: 百度网盘
-根文件夹 ID: /     # 或 STA 的百度盘根目录 ID
-刷新令牌: xxx      # 通过百度 OAuth 获取
-```
-
-**密码管理（宝塔）**：
-- AList 部署在 ECS，通过宝塔的 Docker 或直接进程管理
-- 密码在 AList admin 后台设置
-- 可通过 SSH `cd /path/to/alist && ./alist admin` 重置
-
-**网络配置**：
-- `Nginx` 反代 `:5245` → 对外域名 `pan.tantantan.tech:5245`
-- SSL 由宝塔自动申请 Let's Encrypt
-
-### 11.4 阿里云 ECS
-
-- **管理地址**：`https://ecs.console.aliyun.com`
-- **实例规格**：2C2G（2vCPU, 2GB Memory）
-- **区域**：成都
-- **操作系统**：Ubuntu / CentOS（已装宝塔面板）
-- **用途**：运行 AList + 可选的 Next.js 部署
-
-**宝塔面板**：
-
-| 项 | 说明 |
-|----|------|
-| 入口 | `https://ECS公网IP:8888` |
-| 账户 | 初始安装时设定 |
-| 已安装 | Nginx, PM2 Manager, Let's Encrypt SSL |
-
-**端口配置**（安全组/防火墙必须放行）：
-
-| 端口 | 用途 | 对内 | 对外 |
-|------|------|------|------|
-| 80 | HTTP | ✅ | ✅（自动跳转 HTTPS）|
-| 443 | HTTPS | ✅ | ✅ |
-| 5245 | AList | ✅ | ✅ |
-| 3000 | Next.js | ✅ | ❌（通过 Nginx 反代）|
-| 8888 | 宝塔面板 | ✅ | 按需（建议关闭公网）|
-
-**域名解析（DNS）**：
-
-| 域名 | 类型 | 记录值 | TTL |
-|------|------|--------|-----|
-| `pan.tantantan.tech` | A | ECS 公网 IP | 600 |
-| `pan.tantantan.tech` | AAAA | -（IPv6 无需配置）| - |
-| `test.cdqzsta.tech` | A | ECS 公网 IP（需备案）| 600 |
-
-**备案状态**：
-- `tantantan.tech`：**已备案**（可通过 Let's Encrypt 申请 SSL）
-- `cdqzsta.tech`：**未备案**，国内 ECS 部署将无法访问
-
-### 11.5 域名
-
-**域名清单**：
-
-| 域名 | 注册商 | 备案 | 指向 | 用途 |
-|------|--------|------|------|------|
-| `tantantan.tech` | - | ✅ 已备案 | ECS | AList 服务 |
-| `cdqzsta.tech` | - | ❌ 未备案 | Vercel / ECS | 前端 |
-
-**DNS 管理**：
-- 在各自的域名注册商控制台管理解析
-- 指向 Vercel 时用 CNAME 记录（`cname.vercel-dns.com`）
-- 指向 ECS 时用 A 记录（ECS 公网 IP）
-
-### 11.6 Vercel
-
-- **管理地址**：`https://vercel.com/dashboard`
-- **项目名**：`bd-pan`（GitHub 仓库同名）
-- **框架**：Next.js（自动检测）
-- **部署触发**：`git push` 到 GitHub main 分支自动触发
-
-**项目配置**：
-
-| 配置项 | 值 |
-|--------|-----|
-| Root Directory | `./` |
-| Build Command | `npm run build` |
-| Output Directory | `.next` |
-| Node.js Version | 20.x (Latest) |
-| Region | `iad1` (Washington D.C., USA) |
-
-**Environment Variables**：在 Vercel Dashboard → Settings → Environment Variables 设置（`.env.local` 的全部内容）。
-
-**Vercel 免费版限制**：
-
-| 限制 | 值 | 对本项目的影响 |
-|------|-----|---------------|
-| Serverless 执行时间 | 10s | ZIP 大文件夹会超时 |
-| Serverless 响应体 | 4.5MB | 大文件下载/包上传会失败 |
-| 边缘节点位置 | 全球（主要海外） | 到国内 ECS 延迟高 |
-| 带宽 | 无限制 | 但个人版有月度配额 |
-| 团队成员 | 1 人（个人版） | 无法多人协作 |
-
-**升级到 Pro（$20/月）可解除**：
-
-| 限制 | Pro 值 |
-|------|--------|
-| 执行时间 | 300s（已设置 `maxDuration = 300`）|
-| 响应体 | 4.5MB（不变，Vercel 架构限制）|
-| 团队 | 可添加成员 |
-
-**部署后检查**：
-1. Vercel Dashboard → 选择项目 → Deployments
-2. 确认最新部署状态为 `Ready`
-3. 访问 `https://bd-pan.vercel.app` 和自定义域名 `https://pan.cdqzsta.tech`
-
----
-
-## 12. 部署方案
-
-### 11.1 Vercel（当前生产）
-
-1. Fork/Clone 项目到 GitHub
-2. Vercel 导入 `stacdqz/bd-pan`
-3. 设置环境变量
-4. 自动部署
-
-Vercel 配置：
+**`postinstall` 脚本**（`package.json`）：
 
 ```json
-{
-  "functions": {
-    "src/app/api/alist-zip-download/route.ts": {
-      "maxDuration": 300
-    }
-  }
-}
+"postinstall": "mkdir -p public/pdfjs && cp node_modules/pdfjs-dist/build/pdf.min.mjs node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/pdfjs/"
 ```
 
-**Vercel 免费版限制**（需注意）：
-- 最大执行时间 10s（Pro 300s）
-- 响应体 4.5MB
-- 海外节点到国内 ECS 延迟高
-
-### 11.2 自有 ECS 部署（推荐，解决速度问题）
-
-**前置条件**：
-- ECS 2C2G+，宝塔面板
-- 已安装 Nginx、PM2 管理器
-- 已备案域名（`test.cdqzsta.tech`）
-
-**步骤**：
+**每次更新后手动拷贝 Panzoom**（PDF.js 由 postinstall 自动拷贝）：
 
 ```bash
-# 1. 拉取代码
-cd /www/wwwroot
-git clone https://github.com/stacdqz/bd-pan.git
-cd bd-pan
-npm install
-
-# 2. 环境变量
-# 创建 /www/wwwroot/bd-pan/.env.local（内容见第 9 章）
-
-# 3. 加速 AList 内网访问（关键）
-echo "127.0.0.1 pan.tantantan.tech" >> /etc/hosts
-
-# 4. 构建
-npm run build
-
-# 5. PM2 配置
-# 宝塔 → PM2 管理器 → 添加项目
-#  启动文件: /www/wwwroot/bd-pan/node_modules/.bin/next
-#  运行参数: start -p 3000
-#  名称: bdpan
-
-# 6. Nginx 反代
-server {
-    listen 443 ssl;
-    server_name test.cdqzsta.tech;
-    ssl_certificate /xxx/fullchain.pem;
-    ssl_certificate_key /xxx/privkey.pem;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
-    }
-}
+sudo cp node_modules/@panzoom/panzoom/dist/panzoom.min.js public/pdfjs/
 ```
 
-**更新**：
+**构建命令链：**
 
 ```bash
 cd /www/wwwroot/bd-pan
-git pull
-npm run build       # 需要安装新依赖时才 npm install
-pm2 restart bdpan
+sudo git pull
+sudo npm install                  # 安装依赖 + postinstall 自动拷贝 PDF.js
+sudo cp .../panzoom.min.js public/pdfjs/  # 手动拷贝 Panzoom
+sudo npm run build                # 构建 Next.js（.next/ 目录）
+sudo pm2 restart bdpan            # 重启进程
 ```
 
-### 11.3 域名方案
+> ⚠️ 如果只改了 `public/pdfjs/viewer.html`（静态文件），不需要 `npm run build` 和 `pm2 restart`——Nginx 直接读磁盘。
 
-| 域名 | 指向 | 用途 |
-|------|------|------|
-| `pan.cdqzsta.tech` | Vercel | 当前生产，海外 | 
-| `pan.tantantan.tech` | ECS:5245 | AList 服务 |
-| `test.cdqzsta.tech` | ECS:3000 | Next.js ECS 部署 |
+### Vercel（前端托管）
+
+| 项目 | 值 |
+|------|-----|
+| 仓库 | `stacdqz/bd-pan` |
+| 生产域名 | `pan.cdqzsta.tech`（未备案，走 Vercel DNS）|
+| 测试域名 | `testpan.cdqzsta.tech`（绑定 `demo-ecs-api` 分支）|
+| 关键环境变量 | `NEXT_PUBLIC_API_BASE=https://pan.tantantan.tech/pan` |
+| 自动部署 | `git push main` → 自动构建部署 |
+
+**Vercel 配置：**
+- Framework Preset：Next.js（自动检测）
+- Node.js 版本：20.x
+- Build Command：`npm run build`
+- Output Directory：`.next`
+- Install Command：`npm install`
+- Environment Variables：全量 `.env.local`（`NEXT_PUBLIC_` 前缀必须在 Vercel Dashboard 和 `.env.local` 各配一份）
+- Deployment Protection：**必须关闭**（否则所有访问跳转到 Vercel SSO 登录）
+- Production Branch：`main`
+- Preview Branches：`demo-ecs-api` → `testpan.cdqzsta.tech`
+
+**Vercel 添加域名步骤：**
+1. Dashboard → bd-pan → Settings → Domains
+2. 输入 `pan.cdqzsta.tech` → Add
+3. 到域名 DNS 托管商添加 CNAME 记录：`pan` → `cname.vercel-dns.com`
+4. 等待 SSL 证书自动签发（~1 分钟）
+
+### ECS（API + 数据库）
+
+| 项目 | 值 |
+|------|-----|
+| 规格 | 2C2G，成都区域 |
+| 操作系统 | CentOS（宝塔 Linux 面板）|
+| 域名 | `pan.tantantan.tech`（已备案）|
+| 网络 | 公网 100Mbps，内网 127.0.0.1 |
+
+**ECS 上的服务：**
+
+| 服务 | 端口 | 用途 | 管理方式 |
+|------|------|------|----------|
+| AList | 5244 | 百度网盘桥接 | 宝塔 Docker / 进程管理 |
+| PostgreSQL | 5432 | 数据库 | 宝塔 → 数据库 → PgSQL |
+| PostgREST | 3100 | REST API 网关 | `sudo docker` |
+| Next.js | 3000 | API + 静态文件 | PM2 守护 |
+| Nginx | 80/443 | 反向代理 | 宝塔 → 网站 |
+
+**AList 存储驱动配置**（AList 管理面板 → 存储 → 添加）：
+
+```yaml
+挂载路径: /sta
+驱动: 百度网盘
+根文件夹 ID: /     # STA 目录在百度盘的根
+刷新令牌: <通过百度 OAuth 获取>
+```
+
+**PostgREST 初始化：**
+
+```bash
+sudo docker run -d --name postgrest --restart always --network host \
+  -e PGRST_SERVER_PORT=3100 \
+  -e PGRST_DB_URI="postgres://<用户>:<密码>@127.0.0.1:5432/bdpan" \
+  -e PGRST_DB_SCHEMAS="public" \
+  -e PGRST_DB_ANON_ROLE="bdpan" \
+  -e PGRST_JWT_SECRET="<任意32位字符串>" \
+  -e PGRST_MAX_ROWS=100000 \
+  postgrest/postgrest:latest
+```
+
+### Nginx 配置原文（`/www/server/panel/vhost/nginx/pan.tantantan.tech.conf`）
+
+**⚠️ `proxy_cache_path` 必须放在 `/www/server/nginx/conf/nginx.conf` 的 `http {}` 块内**，不是本站点配置里。
+
+```nginx
+# 全局 MIME（在 server 块第一行）
+types { application/javascript mjs; }
+
+# Next.js API 代理 — 前端所有 API 请求通过此路径转发到 ECS Next.js
+location /pan/ {
+    if ($request_method = 'OPTIONS') {
+        add_header Access-Control-Allow-Origin *;
+        add_header Access-Control-Allow-Methods 'GET, POST, PUT, DELETE, OPTIONS';
+        add_header Access-Control-Allow-Headers 'Content-Type, Authorization';
+        return 204;
+    }
+    proxy_pass http://127.0.0.1:3000/;
+    proxy_set_header Host $host;
+    add_header Access-Control-Allow-Origin *;
+    proxy_read_timeout 300s;
+}
+
+# PDF 直链代理 + 缓存 + 防盗链
+location /pdf-preview/ {
+    proxy_cache pdf_cache;
+    proxy_cache_key "$uri?$args";
+    proxy_cache_valid 200 206 1h;
+    proxy_cache_lock on;
+    proxy_ignore_headers Cache-Control Expires Set-Cookie;
+    if ($http_referer !~* (pan\.tantantan\.tech|localhost)) { return 403; }
+    proxy_pass http://127.0.0.1:5244/p/;
+    proxy_hide_header Content-Disposition;
+    proxy_hide_header Access-Control-Allow-Origin;
+    add_header Content-Disposition inline;
+    add_header Access-Control-Allow-Origin *;
+    proxy_buffering on;
+    proxy_read_timeout 300s;
+    add_header X-Cache-Status $upstream_cache_status;
+    proxy_set_header Range $http_range;
+    proxy_pass_header Accept-Ranges;
+}
+
+# PDF.js 静态文件（直接读取磁盘，不经过 Next.js）
+location /pan/pdfjs/ {
+    alias /www/wwwroot/bd-pan/public/pdfjs/;
+    add_header Access-Control-Allow-Origin *;
+    if ($request_filename ~* \.mjs$) { add_header Content-Type application/javascript; }
+    if ($request_filename ~* \.html$) { add_header Content-Type text/html; }
+}
+
+# 数据库网关（X-DB-Token 保护，防止公网直接访问 PostgREST）
+location /db/ {
+    if ($http_x_db_token != "<PG_DB_TOKEN>") { return 403; }
+    proxy_pass http://127.0.0.1:3100;
+    proxy_set_header Host $host;
+}
+
+# 自定义 403 错误页
+error_page 403 /403.html;
+location = /403.html {
+    root /www/wwwroot/bd-pan/nginx;
+    internal;
+    sub_filter '__REMOTE_ADDR__'      '$remote_addr';
+    sub_filter '__HTTP_USER_AGENT__'  '$http_user_agent';
+    sub_filter '__TIME_LOCAL__'       '$time_local';
+    sub_filter '__HOST__'             '$host';
+    sub_filter_once off;
+    sub_filter_types *;
+}
+```
+
+### 安全清单
+
+| # | 措施 | 位置 |
+|---|------|------|
+| 1 | JWT 签名密钥 | `ADMIN_TOKEN_SECRET`（`.env.local`）|
+| 2 | PostgREST 保护 | Nginx `/db/` + `X-DB-Token` 验证 |
+| 3 | PDF 防盗链 | `/pdf-preview/` + Referer 检查 |
+| 4 | PDF URL 隐藏 | sessionStorage key，不暴露在地址栏 |
+| 5 | IP 封禁 | `settings.bannedIps`，`checkIpBanned()` 入口拦截 |
+| 6 | 操作日志 | 所有请求记录，含 IP 和地理位置 |
+| 7 | 登录频率限制 | ⚠️ 未实现（建议：Nginx limit_req）|
+| 8 | 密码存储 | ⚠️ 明文（建议：bcrypt）|
+| 9 | CORS | 所有 API 端点 `Access-Control-Allow-Origin *` |
+| 10 | `git` 敏感文件 | `.gitignore` 排除 `.env.local`、`server` |
 
 ---
 
-## 13. 已知限制与改进方向
+## 14. ECS 运维命令全集
+
+### 代码更新
+
+```bash
+cd /www/wwwroot/bd-pan && sudo git stash && sudo git pull && \
+sudo npm install && \
+sudo cp node_modules/@panzoom/panzoom/dist/panzoom.min.js public/pdfjs/
+# 如有构建变更：
+sudo npm run build && sudo pm2 restart bdpan
+```
+
+### PM2 管理
+
+```bash
+pm2 status                  # 查看进程状态
+pm2 logs bdpan --lines 20   # 查看最近日志
+pm2 restart bdpan            # 重启
+pm2 delete bdpan             # 删除进程
+pm2 start /www/wwwroot/bd-pan/node_modules/.bin/next --name bdpan -- start -p 3000
+```
+
+### 健康检查
+
+```bash
+curl -I http://127.0.0.1:3000/api/global-settings    # Next.js 是否运行
+curl -I https://pan.tantantan.tech/pan/api/alist       # Nginx 转发是否正常
+curl http://127.0.0.1:3100/bdpan_users                 # PostgREST 是否运行
+find /tmp/nginx_pdf_cache -type f | wc -l              # PDF 缓存数量
+nginx -t && nginx -s reload                            # Nginx 重载
+```
+
+### 数据库
+
+```bash
+# 通用查询
+sudo docker run --rm --network host -e PGPASSWORD='<密码>' postgres:16-alpine psql \
+  -h 127.0.0.1 -U postgres -d bdpan \
+  -c "SELECT created_at, username, action_type FROM bdpan_action_logs ORDER BY created_at DESC LIMIT 10;"
+
+# 查各表总数
+sudo docker run --rm --network host -e PGPASSWORD='<密码>' postgres:16-alpine psql \
+  -h 127.0.0.1 -U postgres -d bdpan \
+  -c "SELECT 'action_logs' AS t, count(*) FROM bdpan_action_logs UNION ALL SELECT 'view_logs', count(*) FROM view_logs UNION ALL SELECT 'users', count(*) FROM bdpan_users;"
+
+# 序列修复（id 冲突时）
+sudo docker run --rm --network host -e PGPASSWORD='<密码>' postgres:16-alpine psql \
+  -h 127.0.0.1 -U postgres -d bdpan \
+  -c "SELECT setval('view_logs_id_seq', (SELECT MAX(id) FROM view_logs)); SELECT setval('bdpan_action_logs_id_seq', (SELECT MAX(id) FROM bdpan_action_logs));"
+
+# PostgREST 重启
+sudo docker restart postgrest
+```
+
+### 常用排查
+
+```bash
+netstat -tlnp | grep -E '3000|3100|5432|5244'   # 各服务端口
+pm2 logs bdpan --lines 20                         # PM2 日志
+cat /www/wwwroot/bd-pan/nohup.out | tail -30      # nohup 日志（备用）
+```
+
+---
+
+## 15. 环境变量完整清单
+
+### 分类说明
+
+| 类别 | 必须配在 | 说明 |
+|------|----------|------|
+| `NEXT_PUBLIC_*` | Vercel Dashboard + `.env.local` | 构建时内嵌到 JS，运行时不可改 |
+| `PG_*` / `ADMIN_*` | `.env.local` + ECS `.env.local` | 服务端读取，不暴露给浏览器 |
+| `SUPABASE_BACKUP_*` | `.env.local` | 可选，不加则不启用双写 |
+
+### 完整清单
+
+```bash
+# === 核心（Vercel + ECS 各一份）===
+NEXT_PUBLIC_API_BASE=https://pan.tantantan.tech/pan  # API 转发目标
+NEXT_PUBLIC_ALIST_URL=https://pan.tantantan.tech/    # AList 公网地址
+NEXT_PUBLIC_SUPABASE_URL=https://pan.tantantan.tech/db  # PostgREST 网关
+NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy                     # 未使用，留占位
+
+# === 认证（ECS + Vercel）===
+ADMIN_TOKEN_SECRET=<openssl rand -hex 32 生成>       # JWT 签名（不允许默认值）
+
+# === AList（ECS + Vercel）===
+ALIST_USERNAME=admin
+ALIST_PASSWORD=<AList 管理面板密码>
+ALIST_USERNAME_FALLBACK=
+ALIST_PASSWORD_FALLBACK=
+
+# === 数据库（仅 ECS）===
+PG_DB_TOKEN=<openssl rand -hex 32 生成>              # PostgREST 网关 Token
+
+# === 双写备份（可选，仅 ECS）===
+# SUPABASE_BACKUP_URL=https://xxx.supabase.co
+# SUPABASE_BACKUP_KEY=sb_publishable_xxxxx
+
+# === ECS 部署（仅 ECS）===
+NODE_OPTIONS=--max-old-space-size=1024   # Vercel 无需此变量
+NODE_TLS_REJECT_UNAUTHORIZED=0
+```
+
+### 生成密钥命令
+
+```bash
+openssl rand -hex 32  # 生成 ADMIN_TOKEN_SECRET 或 PG_DB_TOKEN
+```
+
+---
+
+## 16. 测试
+
+```bash
+# 安装 Playwright（首次）
+npm install && npx playwright install chromium
+
+# 运行全部测试（需要 dev server 在 localhost:3000）
+npm test
+
+# UI 模式（可视界面）
+npm run test:ui
+
+# 测试说明
+```
+
+测试覆盖：
+- `login.spec.ts`：登录页加载、空输入、错误密码、游客登录、管理员登录
+- `app.spec.ts`：文件列表、主题切换、退出等基础功能
+
+> ⚠️ 测试需要连接真实的 AList + PostgreSQL，依赖外部服务。
+
+---
+
+## 17. 更新日志
+
+变更记录位于 `src/data/changelog.json`。
+
+```json
+{
+  "version": "4.0.0",
+  "date": "2026-06-21 12:00:00",
+  "message": "[重大] 核心架构升级：API 迁移至 ECS..."
+}
+```
+
+---
+
+## 18. 已知限制与改进方向
 
 | # | 问题 | 影响 | 改进方向 |
 |---|------|------|----------|
-| 1 | Vercel 免费版 10s 超时 | ZIP 大文件夹打包失败 | 迁移至 ECS |
-| 2 | Vercel 4.5MB 载荷限制 | 大文件代理下载失败 | 迁移至 ECS |
-| 3 | 海外→国内延迟 | ZIP 速度极慢 | 迁移至 ECS（alist 同机） |
-| 5 | alist archive API 无法使用 | 不能服务器端打包 | 代码保留备用 |
-| 6 | `page.tsx` 3800 行单体 | 维护困难、diff 冲突 | 拆分为组件 |
-| 7 | 无自动化测试 | 人工回归 | 加入 Playwright E2E |
-| 8 | 并发限制 6 | 大文件夹 ZIP 慢 | ECS 可调大到 10+ |
+| 1 | 密码明文存储 | 数据库泄露可读全部密码 | bcrypt hash |
+| 2 | `page.tsx` 3800 行单体 | 维护困难、diff 冲突 | 拆分组件 |
+| 3 | Vercel 冷启动海外延迟 | 首次访问 2-5s | 迁移整站到 ECS（需 `cdqzsta.tech` 备案）|
+| 4 | PDF 全量下载（非 Range） | 100MB PDF 10s 加载 | 修复跨域 Range 检测 |
+| 5 | 手机端 300% Canvas | 低端手机卡顿 | 自适应降低分辨率 |
+| 6 | 无 CI/CD | 手动部署 | 加 GitHub Actions |
+| 7 | Supabase 无字段同步 | 备份写入跳过新字段 | 自动 DDL 同步 |
