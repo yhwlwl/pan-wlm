@@ -680,69 +680,177 @@ sudo docker run -d --name postgrest --restart always --network host \
 **⚠️ `proxy_cache_path` 必须放在 `/www/server/nginx/conf/nginx.conf` 的 `http {}` 块内**，不是本站点配置里。
 
 ```nginx
-# 全局 MIME（在 server 块第一行）
-types { application/javascript mjs; }
+# ============================================================
+# 🔧 server 块头部
+# ============================================================
+server {
+    types { application/javascript mjs; }
+    listen 80;
+    listen 443 ssl;
+    listen 443 quic;
+    http2 on;
+    server_name pan.tantantan.tech;
+    index index.php index.html index.htm default.php default.htm default.html;
+    root /www/wwwroot/pan.tantantan.tech;
 
-# Next.js API 代理 — 前端所有 API 请求通过此路径转发到 ECS Next.js
-location /pan/ {
-    if ($request_method = 'OPTIONS') {
-        add_header Access-Control-Allow-Origin *;
-        add_header Access-Control-Allow-Methods 'GET, POST, PUT, DELETE, OPTIONS';
-        add_header Access-Control-Allow-Headers 'Content-Type, Authorization';
-        return 204;
+    # --- 宝塔 SSL 证书 ---
+    ssl_certificate     /www/server/panel/vhost/cert/pan.tantantan.tech/fullchain.pem;
+    ssl_certificate_key /www/server/panel/vhost/cert/pan.tantantan.tech/privkey.pem;
+    ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;
+    ssl_ciphers EECDH+CHACHA20:EECDH+CHACHA20-draft:EECDH+AES128:RSA+AES128:EECDH+AES256:RSA+AES256:EECDH+3DES:RSA+3DES:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    add_header Strict-Transport-Security "max-age=31536000";
+    add_header Alt-Svc 'quic=":443"; h3=":443"; h3-29=":443"; ...';
+
+    # HTTP → HTTPS 自动跳转
+    set $isRedcert 1;
+    if ($server_port != 443) { set $isRedcert 2; }
+    if ($uri ~ /\.well-known/) { set $isRedcert 1; }
+    if ($isRedcert != 1) { rewrite ^(/.*)$ https://$host$1 permanent; }
+
+    # 404 错误页（宝塔默认）
+    error_page 404 /404.html;
+
+    # ============================================================
+    # 🚫 全局 403 处理 — 统一 302 重定向到 deny.tantantan.tech
+    # 所有 return 403 的 location 都会走这里，一处维护
+    # ============================================================
+    error_page 403 @deny;
+    location @deny {
+        return 302 https://deny.tantantan.tech/?from=$uri&ip=$remote_addr&time=$time_local&ua=$http_user_agent;
     }
-    proxy_pass http://127.0.0.1:3000/;
-    proxy_set_header Host $host;
-    add_header Access-Control-Allow-Origin *;
-    proxy_read_timeout 300s;
-}
 
-# PDF 直链代理 + 缓存 + 防盗链
-location /pdf-preview/ {
-    proxy_cache pdf_cache;
-    proxy_cache_key "$uri?$args";
-    proxy_cache_valid 200 206 1h;
-    proxy_cache_lock on;
-    proxy_ignore_headers Cache-Control Expires Set-Cookie;
-    if ($http_referer !~* (pan\.tantantan\.tech|localhost)) { return 403; }
-    proxy_pass http://127.0.0.1:5244/p/;
-    proxy_hide_header Content-Disposition;
-    proxy_hide_header Access-Control-Allow-Origin;
-    add_header Content-Disposition inline;
-    add_header Access-Control-Allow-Origin *;
-    proxy_buffering on;
-    proxy_read_timeout 300s;
-    add_header X-Cache-Status $upstream_cache_status;
-    proxy_set_header Range $http_range;
-    proxy_pass_header Accept-Ranges;
-}
+    # ============================================================
+    # 📄 PDF 预览代理 + 防盗链 + Nginx 缓存
+    #
+    # 缓存策略:
+    #   - 首次拉取 PDF 后缓存 1h（proxy_cache_valid 200 206 1h）
+    #   - 缓存 key = URI + 参数（每个 sign 独立缓存）
+    #   - proxy_cache_lock on → 同一文件并发请求只拉一次
+    #   - 忽略上游的 Cache-Control/Expires 头，强制缓存
+    #   - proxy_buffering on → 完整接收后一次性响应
+    #
+    # 防盗链:
+    #   - 仅 pan.tantantan.tech 的 referer 可访问（含 localhost 调试）
+    #   - 其他来源 → 触发 403 → 跳转 deny.tantantan.tech
+    # ============================================================
+    location /pdf-preview/ {
+        # ── 缓存 ──
+        proxy_cache pdf_cache;
+        proxy_cache_key "$uri?$args";
+        proxy_cache_valid 200 206 1h;
+        proxy_cache_lock on;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+        proxy_buffering on;
+        add_header X-Cache-Status $upstream_cache_status;
 
-# PDF.js 静态文件（直接读取磁盘，不经过 Next.js）
-location /pan/pdfjs/ {
-    alias /www/wwwroot/bd-pan/public/pdfjs/;
-    add_header Access-Control-Allow-Origin *;
-    if ($request_filename ~* \.mjs$) { add_header Content-Type application/javascript; }
-    if ($request_filename ~* \.html$) { add_header Content-Type text/html; }
-}
+        # ── 防盗链 ──
+        proxy_intercept_errors on;
+        set $block_referer 0;
+        if ($http_referer !~* pan\.tantantan\.tech) {
+            set $block_referer 1;
+        }
+        if ($block_referer = 1) {
+            return 403;   # → 触发全局 @deny 302 重定向
+        }
 
-# 数据库网关（X-DB-Token 保护，防止公网直接访问 PostgREST）
-location /db/ {
-    if ($http_x_db_token != "<PG_DB_TOKEN>") { return 403; }
-    proxy_pass http://127.0.0.1:3100;
-    proxy_set_header Host $host;
-}
+        # ── CORS 预检 ──
+        if ($request_method = 'OPTIONS') {
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods 'GET, OPTIONS';
+            return 204;
+        }
 
-# 自定义 403 错误页
-error_page 403 /403.html;
-location = /403.html {
-    root /www/wwwroot/bd-pan/nginx;
-    internal;
-    sub_filter '__REMOTE_ADDR__'      '$remote_addr';
-    sub_filter '__HTTP_USER_AGENT__'  '$http_user_agent';
-    sub_filter '__TIME_LOCAL__'       '$time_local';
-    sub_filter '__HOST__'             '$host';
-    sub_filter_once off;
-    sub_filter_types *;
+        # ── 代理到 AList ──
+        proxy_pass http://127.0.0.1:5244/p/;
+        proxy_hide_header Content-Disposition;
+        proxy_hide_header Access-Control-Allow-Origin;
+        add_header Content-Disposition inline;
+        add_header Access-Control-Allow-Origin *;
+        proxy_read_timeout 300s;
+        proxy_set_header Range $http_range;
+        proxy_pass_header Accept-Ranges;
+    }
+
+    # ============================================================
+    # 📁 PDF.js 静态文件 — 直接读磁盘，不经过 Next.js
+    # ============================================================
+    location /pan/pdfjs/ {
+        alias /www/wwwroot/bd-pan/public/pdfjs/;
+        add_header Access-Control-Allow-Origin *;
+        if ($request_filename ~* \.mjs$) {
+            add_header Content-Type application/javascript;
+        }
+        if ($request_filename ~* \.html$) {
+            add_header Content-Type text/html;
+        }
+    }
+
+    # ============================================================
+    # 🔗 Next.js API 代理 — Vercel 前端所有 /pan/ 请求 → ECS Next.js:3000
+    #
+    # 必须转发真实 IP 头，否则所有日志显示 127.0.0.1
+    # ============================================================
+    location /pan/ {
+        if ($request_method = 'OPTIONS') {
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods 'GET, POST, PUT, DELETE, OPTIONS';
+            add_header Access-Control-Allow-Headers 'Content-Type, Authorization';
+            return 204;
+        }
+        proxy_pass http://127.0.0.1:3000/;
+        proxy_set_header Host $host;
+        # ⚠️ 这三行是客户端 IP 正确记录的关键
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin *;
+        proxy_read_timeout 300s;
+    }
+
+    # ============================================================
+    # 🛡️ 数据库网关 — X-DB-Token 鉴权，防止公网直连 PostgREST:3100
+    # ============================================================
+    location /db/ {
+        if ($http_x_db_token != "<PG_DB_TOKEN>") {
+            return 403;   # → 触发全局 @deny 302 重定向
+        }
+        rewrite ^/db/(.*) /$1 break;
+        proxy_pass http://127.0.0.1:3100;
+        proxy_set_header Host $host;
+    }
+
+    # ============================================================
+    # 🌐 地理位置查询代理（ip-api.com HTTP → 同源 HTTPS）
+    # 供 403.html 在旧 sub_filter 模式下使用，统一 @deny 后可移除
+    # ============================================================
+    location = /geo-lookup {
+        resolver 114.114.114.114 valid=300s;
+        set $geo_path "/json/$arg_ip";
+        proxy_pass http://ip-api.com$geo_path?fields=status,message,country,countryCode,regionName,city,zip,lat,lon,isp,org,query&lang=zh-CN;
+        proxy_set_header Host ip-api.com;
+    }
+
+    # 宝塔扩展配置
+    include /www/server/panel/vhost/nginx/well-known/pan.tantantan.tech.conf;
+    include /www/server/panel/vhost/nginx/extension/pan.tantantan.tech/*.conf;
+    include /www/server/panel/vhost/nginx/proxy/pan.tantantan.tech/*.conf;
+    include enable-php-00.conf;
+    include /www/server/panel/vhost/rewrite/pan.tantantan.tech.conf;
+
+    # 禁止访问的敏感文件
+    location ~ ^/(\.user.ini|\.htaccess|\.git|\.env|\.svn|\.project|LICENSE|README.md) {
+        return 404;
+    }
+    location ~ \.well-known { allow all; }
+    if ($uri ~ "^/\.well-known/.*\.(php|jsp|py|js|css|lua|ts|go|zip|tar\.gz|rar|7z|sql|bak)$") {
+        return 403;
+    }
+
+    access_log  /www/wwwlogs/pan.tantantan.tech.log;
+    error_log   /www/wwwlogs/pan.tantantan.tech.error.log;
 }
 ```
 
