@@ -19,9 +19,12 @@
 - [11. 前端架构](#11-前端架构)
 - [12. 数据库](#12-数据库)
 - [13. 部署方案](#13-部署方案)
-- [14. ECS 运维命令全集](#14-ecs-运维命令全集)
-- [15. 环境变量完整清单](#15-环境变量完整清单)
-- [16. 已知限制与改进方向](#16-已知限制与改进方向)
+- [14. Deny 事件追踪与风险评分系统](#14-deny-事件追踪与风险评分系统)
+- [15. ECS 运维命令全集](#15-ecs-运维命令全集)
+- [16. 环境变量完整清单](#16-环境变量完整清单)
+- [17. 测试](#17-测试)
+- [18. 更新日志](#18-更新日志)
+- [19. 已知限制与改进方向](#19-已知限制与改进方向)
 
 ---
 
@@ -871,7 +874,66 @@ server {
 
 ---
 
-## 14. ECS 运维命令全集
+## 14. Deny 事件追踪与风险评分系统
+
+### 概述
+
+对所有 deny/403/401 事件进行统一记录，按 IP 和设备码（Canvas/WebGL 指纹）双维度累计风险评分，达阈值自动封禁。
+
+**全局开关**：管理面板「防御态势」区域可一键关闭（`settings.denyTracking.enabled`），关闭后不记录/不评分/不封禁。
+
+### 设备码（机器码）
+
+基于浏览器 Canvas + WebGL + 硬件属性的 FNV-1a 64-bit hash。同一设备同一浏览器基本不变，换 IP、清缓存均不影响。
+
+- **L2 设备码**（核心）：浏览器端 JS 计算，首页加载时存入 `localStorage.BDPAN_DEVICE_CODE`，所有 API 请求通过 `X-Device-Code` header 携带
+- **L1 服务端兜底**：curl/API 工具无 JS 时，使用 `SHA256(IP+UA+Lang)` 作为设备标识
+
+### 评分体系
+
+| deny_reason | 分数 | 触发场景 |
+|-------------|------|----------|
+| `nginx_db_token` | 30 | /db/ 无 Token |
+| `nginx_sensitive_file` | 20 | 探测 .env/.git 等 |
+| `nginx_pdf_referer` | 10 | PDF 盗链 |
+| `api_ip_banned` | 25 | 已被封 IP 再次尝试 |
+| `api_auth_failed` | 5 | Token 缺失/无效/过期 |
+| `api_login_failed` | 8 | 密码错误、游客关闭 |
+| `api_role_denied` | 10 | 非管理员访问管理接口 |
+| `api_permission_denied` | 5 | 用户缺某项操作权限 |
+| `api_file_rule_denied` | 5 | 文件级权限规则拒绝 |
+
+**衰减**：`newScore = oldScore × max(0, 1 - hoursAgo ÷ 24) + eventPoints`
+
+**去重**：同一 `(IP, request_path)` 5 分钟内只计分一次
+
+**阈值**：≥30 告警，≥50 封设备，≥70 封IP
+
+### 封禁机制
+
+- **设备封禁（≥50）**：`bdpan_risk_scores.is_banned=true`，24h 后自动解封，分数重置到 40
+- **IP 封禁（≥70）**：写入 `settings.bannedIps`，24h 后自动解封，分数重置到 60
+- **冷却**：封禁到期后分数重置到阈值以下，避免死循环
+- **管理员豁免**：admin/manager 角色绕过封禁检查
+
+### 数据库表
+
+- `bdpan_deny_events`：所有 deny 事件记录
+- `bdpan_risk_scores`：按 `(entity_type, entity_value)` 累计的风险评分
+
+### 核心文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/lib/fingerprint.ts` | 设备码服务端计算 |
+| `src/lib/deny-tracker.ts` | 核心引擎：logDenyEvent / denyAndLog / checkEntityBanned |
+| `src/app/api/log-deny-event/route.ts` | 公共日志端点（403.html 回调） |
+| `src/app/api/deny-stats/route.ts` | 管理面板数据 API |
+| `sql/deny-tables.sql` | 建表 DDL |
+
+---
+
+## 15. ECS 运维命令全集
 
 ### 代码更新
 
@@ -935,7 +997,7 @@ cat /www/wwwroot/bd-pan/nohup.out | tail -30      # nohup 日志（备用）
 
 ---
 
-## 15. 环境变量完整清单
+## 16. 环境变量完整清单
 
 ### 分类说明
 
@@ -983,7 +1045,7 @@ openssl rand -hex 32  # 生成 ADMIN_TOKEN_SECRET 或 PG_DB_TOKEN
 
 ---
 
-## 16. 测试
+## 17. 测试
 
 ```bash
 # 安装 Playwright（首次）
@@ -1006,7 +1068,7 @@ npm run test:ui
 
 ---
 
-## 17. 更新日志
+## 18. 更新日志
 
 变更记录位于 `src/data/changelog.json`。
 
@@ -1020,7 +1082,7 @@ npm run test:ui
 
 ---
 
-## 18. 已知限制与改进方向
+## 19. 已知限制与改进方向
 
 | # | 问题 | 影响 | 改进方向 |
 |---|------|------|----------|
