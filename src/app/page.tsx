@@ -5,6 +5,8 @@ import CHANGELOG_DATA from '../data/changelog.json';
 
 const ALIST_BASE_DEFAULT = (process.env.NEXT_PUBLIC_ALIST_URL || 'https://pan.tantantan.tech:5245').replace(/\/+$/, '');
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || '').replace(/\/+$/, '');
+// 强制文件根目录（前端构造 PDF 预览 URL 时补全路径）
+const FORCE_BASE_PATH = (process.env.NEXT_PUBLIC_FORCE_BASE_PATH || '').replace(/\/+$/, '');
 
 type Role = 'admin' | 'manager' | 'guest';
 type Theme = 'light' | 'dark';
@@ -342,9 +344,13 @@ export default function Home() {
         const sign = data.data?.sign || '';
         const base = type === 'pdf' ? getAlistBase().replace(/:5245$/, '') : getAlistBase();
         const pathPrefix = type === 'pdf' ? '/pdf-preview' : '/p';
+        // 补全文件路径（FORCE_BASE_PATH 下 filePath 可能不含前缀）
+        const fullPath = FORCE_BASE_PATH && !filePath.startsWith(FORCE_BASE_PATH)
+          ? `${FORCE_BASE_PATH}${filePath.startsWith('/') ? filePath : `/${filePath}`}`
+          : filePath;
         previewUrl = sign
-          ? `${base}${pathPrefix}${filePath}?sign=${sign}`
-          : `${base}${pathPrefix}${filePath}`;
+          ? `${base}${pathPrefix}${fullPath}?sign=${sign}`
+          : `${base}${pathPrefix}${fullPath}`;
         // PDF：统一用 PDF.js（桌面+手机）
         if (type === 'pdf') {
           const pdfJsUrl = `${API_BASE}/pdfjs/viewer.html?file=${encodeURIComponent(previewUrl)}`;
