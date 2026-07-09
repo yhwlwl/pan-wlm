@@ -64,6 +64,11 @@ export type UserWithPermissions = Omit<User, 'password'> & { permissions: UserPe
 
 const db = pgClient();
 
+// 表名前缀（多站数据隔离，在 .env.local 设 DB_TABLE_PREFIX=wlm_）
+const PREFIX = process.env.DB_TABLE_PREFIX || '';
+const TABLE_USERS = `${PREFIX}bdpan_users`;
+const TABLE_SETTINGS = `${PREFIX}bdpan_settings`;
+
 function normalizePath(path: string | undefined): string {
     const raw = (path || '/').trim();
     if (!raw || raw === '/') return '/';
@@ -129,7 +134,7 @@ export async function getSettings(): Promise<GlobalSettings> {
 
     if (!db) return defaults;
 
-    const { data: rows, error } = await pgFetch<{ value: any }>('GET', 'bdpan_settings?select=value&key=eq.global&limit=1');
+    const { data: rows, error } = await pgFetch<{ value: any }>('GET', `${TABLE_SETTINGS}?select=value&key=eq.global&limit=1`);
     if (error || !rows || rows.length === 0) return defaults;
 
     const val = (rows[0].value || {}) as Record<string, unknown>;
@@ -162,7 +167,7 @@ export async function updateSettings(patch: Partial<GlobalSettings>): Promise<vo
     if (!db) return;
     const current = await getSettings();
     const merged = { ...current, ...patch };
-    await pgUpsert('bdpan_settings', { key: 'global', value: merged });
+    await pgUpsert(TABLE_SETTINGS, { key: 'global', value: merged });
 }
 
 export async function getUserPermissions(username: string, role: Role): Promise<UserPermissions> {
@@ -226,7 +231,7 @@ export async function getUserPermissions(username: string, role: Role): Promise<
 export async function getUsers(): Promise<UserWithPermissions[]> {
     if (!db) return [];
 
-    const { data: users, error } = await pgFetch<Omit<User, 'password'>>('GET', 'bdpan_users?select=username,role&order=id.asc');
+    const { data: users, error } = await pgFetch<Omit<User, 'password'>>('GET', `${TABLE_USERS}?select=username,role&order=id.asc`);
     if (error) { console.error('[users] getUsers error:', error); return []; }
     const result: UserWithPermissions[] = [];
 
@@ -250,7 +255,7 @@ export async function findUser(username: string, password: string): Promise<Omit
     if (!db) return null;
 
     const enc = encodeURIComponent;
-    const { data: rows, error } = await pgFetch<Omit<User, 'password'>>('GET', `bdpan_users?select=username,role&username=eq.${enc(username)}&password=eq.${enc(password)}&limit=1`);
+    const { data: rows, error } = await pgFetch<Omit<User, 'password'>>('GET', `${TABLE_USERS}?select=username,role&username=eq.${enc(username)}&password=eq.${enc(password)}&limit=1`);
     if (error || !rows || rows.length === 0) return null;
     return rows[0];
 }
@@ -259,10 +264,10 @@ export async function addUser(username: string, password: string, role: Role): P
     if (!db) return { ok: false, error: 'Supabase 未配置' };
     if (!username || !password) return { ok: false, error: '用户名和密码不能为空' };
 
-    const { data: existing } = await pgFetch('GET', `bdpan_users?select=username&username=eq.${encodeURIComponent(username)}&limit=1`);
+    const { data: existing } = await pgFetch('GET', `${TABLE_USERS}?select=username&username=eq.${encodeURIComponent(username)}&limit=1`);
     if (existing && existing.length > 0) return { ok: false, error: '用户名已存在' };
 
-    const { error } = await pgInsert('bdpan_users', { username, password, role });
+    const { error } = await pgInsert(TABLE_USERS, { username, password, role });
     if (error) return { ok: false, error: error.message };
     return { ok: true };
 }
@@ -273,7 +278,7 @@ export async function removeUser(username: string): Promise<{ ok: boolean; error
         return { ok: false, error: `不能删除内置账号：${username}` };
     }
 
-    const { error } = await pgDelete('bdpan_users', 'username', username);
+    const { error } = await pgDelete(TABLE_USERS, 'username', username);
 
     if (error) return { ok: false, error: error.message };
     return { ok: true };
@@ -285,7 +290,7 @@ export async function updateUserRole(username: string, role: Role): Promise<{ ok
         return { ok: false, error: `不能修改内置账号角色：${username}` };
     }
 
-    const { error } = await pgUpdate('bdpan_users', 'username', username, { role });
+    const { error } = await pgUpdate(TABLE_USERS, 'username', username, { role });
     if (error) return { ok: false, error: error.message };
     return { ok: true };
 }
@@ -294,7 +299,7 @@ export async function updateAdminPassword(newPassword: string): Promise<{ ok: bo
     if (!db) return { ok: false, error: 'PG_URL 未配置' };
     if (!newPassword) return { ok: false, error: '密码不能为空' };
 
-    const { error } = await pgUpdate('bdpan_users', 'username', 'admin', { password: newPassword });
+    const { error } = await pgUpdate(TABLE_USERS, 'username', 'admin', { password: newPassword });
     if (error) return { ok: false, error: error.message };
     return { ok: true };
 }

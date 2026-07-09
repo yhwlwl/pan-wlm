@@ -71,7 +71,7 @@ export async function POST(request: Request) {
         const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
 
         const body = await request.json().catch(() => ({}));
-        const { action, path, name, names, newName, dir_name, parent, keywords, scope } = body as {
+        let { action, path, name, names, newName, dir_name, parent, keywords, scope } = body as {
             action: string;
             path?: string;
             name?: string;
@@ -82,6 +82,12 @@ export async function POST(request: Request) {
             keywords?: string;
             scope?: number;
         };
+
+        // 强制目录锁定（新站所有人只能看到未来梦目录）
+        const FORCE_BASE_PATH = (process.env.FORCE_BASE_PATH || '').replace(/\/+$/, '');
+        if (FORCE_BASE_PATH && path) {
+            path = FORCE_BASE_PATH + (path === '/' ? '' : path);
+        }
 
         const ctx = getRequestContext(request);
         const deviceCodeHash = hashDeviceCode(ctx.deviceCode || '');

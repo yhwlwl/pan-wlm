@@ -60,11 +60,16 @@ export async function GET(request: Request) {
         }
 
         const { searchParams } = new URL(request.url);
-        const path = searchParams.get('path');
+        let path = searchParams.get('path');
         const configB64 = searchParams.get('c');
         const tokenParam = searchParams.get('token');
         if (!path) {
             return NextResponse.json({ error: '缺少 path 参数' }, { status: 400 });
+        }
+        // 强制目录锁定
+        const FORCE_BASE_PATH = (process.env.FORCE_BASE_PATH || '').replace(/\/+$/, '');
+        if (FORCE_BASE_PATH && path) {
+            path = FORCE_BASE_PATH + (path === '/' ? '' : path);
         }
 
         const authHeader = request.headers.get('authorization') || (tokenParam ? `Bearer ${tokenParam}` : undefined);
