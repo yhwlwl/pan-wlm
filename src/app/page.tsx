@@ -7,6 +7,8 @@ const ALIST_BASE_DEFAULT = (process.env.NEXT_PUBLIC_ALIST_URL || 'https://pan.ta
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || '').replace(/\/+$/, '');
 // 强制文件根目录（前端构造 PDF 预览 URL 时补全路径）
 const FORCE_BASE_PATH = (process.env.NEXT_PUBLIC_FORCE_BASE_PATH || '').replace(/\/+$/, '');
+// 站点标识（管理面板按此过滤数据）
+const APP_SOURCE = process.env.NEXT_PUBLIC_APP_SOURCE || 'weilaimeng';
 
 type Role = 'admin' | 'manager' | 'guest';
 type Theme = 'light' | 'dark';
@@ -1537,7 +1539,7 @@ export default function Home() {
     try {
       // 非 admin 只拉统计数据（操作日志等）
       if (userRole !== 'admin') {
-        const statsRes = await fetch(`${API_BASE}/api/admin-stats?source=${source}`, { headers: { 'Authorization': `Bearer ${userToken}` } });
+        const statsRes = await fetch(`${API_BASE}/api/admin-stats?source=${source}&page_source=${APP_SOURCE}`, { headers: { 'Authorization': `Bearer ${userToken}` } });
         const sData = await statsRes.json();
         if (sData.code === 200 && sData.data) setAdminStats(sData.data);
         return;
@@ -1545,7 +1547,7 @@ export default function Home() {
       // admin 拉全部（含 deny 风控管理）
       const [usrRes, statsRes, denyRes] = await Promise.all([
         fetch(`${API_BASE}/api/users`, { headers: { 'Authorization': `Bearer ${userToken}` } }),
-        fetch(`${API_BASE}/api/admin-stats?source=${source}`, { headers: { 'Authorization': `Bearer ${userToken}` } }),
+        fetch(`${API_BASE}/api/admin-stats?source=${source}&page_source=${APP_SOURCE}`, { headers: { 'Authorization': `Bearer ${userToken}` } }),
         fetch(`${API_BASE}/api/deny-stats`, { headers: { 'Authorization': `Bearer ${userToken}` } }).catch(() => null as any),
       ]);
       const data = await usrRes.json();
