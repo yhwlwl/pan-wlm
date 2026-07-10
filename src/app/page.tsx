@@ -2898,7 +2898,7 @@ export default function Home() {
               ) : previewFile?.type === 'video' ? (
                 <video src={previewFile.url} controls autoPlay className="max-w-full max-h-[78vh] rounded-lg shadow-2xl" style={{ outline: 'none' }} />
               ) : previewFile?.type === 'pdf' ? (
-                <iframe src={previewFile.url} className="w-full h-[78vh] rounded-lg border-0 bg-white" title={previewFile.name} />
+                <iframe src={previewFile.url} className="w-full h-[78vh] rounded-lg border-0 bg-white" title={previewFile.name} allow="fullscreen" />
               ) : previewFile?.type === 'office' ? (
                 <iframe src={previewFile.url} className="w-full h-[78vh] rounded-lg border-0 bg-white" title={previewFile.name} />
               ) : previewFile?.type === 'text' ? (
