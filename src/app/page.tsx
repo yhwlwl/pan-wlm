@@ -1763,7 +1763,7 @@ export default function Home() {
           <div className="text-center mb-6">
             <div className="text-3xl mb-2">☁️</div>
             <h1 className="text-xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>成都七中STA · 科协网盘</h1>
-            <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>未来梦杂志在线阅读平台</p>
+            <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>未来梦在线阅读平台</p>
           </div>
           <div className="space-y-3">
             <input
@@ -1809,7 +1809,7 @@ export default function Home() {
             {authError && <div className="text-[11px] text-red-400 text-center">{authError}</div>}
           </div>
           <div className="flex items-center justify-between mt-5">
-            <p className="text-[9px]" style={{ color: 'var(--text-faint)' }}>© 成都七中科学技术协会</p>
+            <p className="text-[9px]" style={{ color: 'var(--text-faint)' }}>© {new Date().getFullYear()} 成都七中科学技术协会</p>
             <button onClick={toggleTheme} className="text-sm opacity-60 hover:opacity-100 transition-opacity" title="切换主题">
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
@@ -1827,7 +1827,7 @@ export default function Home() {
       <header className="h-12 glass-strong flex items-center justify-between px-4 md:px-6 text-[10px] font-bold tracking-widest shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
         <div className="flex items-center gap-3">
           <span className="text-base">☁️</span>
-          <span style={{ color: 'var(--accent)' }} className="uppercase">未来梦杂志在线阅读平台</span>
+          <span style={{ color: 'var(--accent)' }} className="uppercase">未来梦在线阅读平台</span>
           <span className="opacity-30">|</span>
           <span className="text-emerald-500 hidden sm:inline">ONLINE</span>
         </div>
@@ -3369,42 +3369,9 @@ export default function Home() {
             {/* 头部工具栏 */}
             <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-card)' }}>
               <div className="flex items-center gap-2 whitespace-nowrap shrink-0">
-                <span className="text-[10px] font-black tracking-widest uppercase italic" style={{ color: 'var(--text-muted)' }}>未来梦杂志</span>
-                <span className="text-[10px] hidden sm:inline" style={{ color: 'var(--text-faint)' }}>· AList</span>
+                <span className="text-[10px] font-black tracking-widest uppercase italic" style={{ color: 'var(--text-muted)' }}>WLM-PAN</span>
               </div>
               <div className="flex items-center gap-2 flex-wrap justify-end">
-                {canSearch && (
-                  <>
-                    <span className="text-[10px] font-bold hidden sm:inline" style={{ color: 'var(--text-muted)' }}>搜索</span>
-                    <input
-                      value={alistSearchKeyword}
-                      onChange={e => setAlistSearchKeyword(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && alistSearchFast()}
-                      placeholder="文件名 / 后缀"
-                      className="w-36 md:w-48 rounded px-2 py-1 text-[10px] outline-none"
-                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
-                    />
-                    <button
-                      onClick={alistSearchFast}
-                      disabled={alistSearchLoading}
-                      className="text-[10px] px-2 py-1 rounded font-bold text-white disabled:opacity-50"
-                      style={{ background: 'var(--accent)' }}
-                      title="搜索文件"
-                    >
-                      {alistSearchLoading ? '搜索中' : '搜索'}
-                    </button>
-                    {alistSearchActive && (
-                      <button
-                        onClick={clearAlistSearch}
-                        className="text-[10px] px-2 py-1 rounded transition-opacity hover:opacity-80"
-                        style={{ color: 'var(--text-muted)', border: '1px solid var(--border-color)' }}
-                        title="清除搜索"
-                      >
-                        清除
-                      </button>
-                    )}
-                  </>
-                )}
                 {canUpload && (currentPathPerms ? currentPathPerms.upload : true) && (
                   <>
                     <button onClick={() => setAlistShowMkdir(!alistShowMkdir)}

@@ -19,7 +19,9 @@ canvas{display:block;box-shadow:0 2px 12px rgba(0,0,0,.5)}
   <input id="pageInput" type="number" min="1" value="1">
   <button id="zoomOut">−</button>
   <select id="scaleSelect">
-    <option value="3" selected>300%</option>
+    <option value="page-fit" selected>适合页面</option>
+    <option value="page-width">适合宽度</option>
+    <option value="3">300%</option>
     <option value="2">200%</option>
     <option value="1.5">150%</option>
     <option value="1">100%</option>
@@ -27,6 +29,7 @@ canvas{display:block;box-shadow:0 2px 12px rgba(0,0,0,.5)}
   <button id="zoomIn">＋</button>
   <span style="font-size:9px;opacity:.5">清晰度</span>
   <span id="loading" style="font-size:10px;opacity:.7;margin-left:auto"></span>
+<button id="fullscreenBtn" style="background:#555;border:none;color:#fff;padding:2px 8px;border-radius:3px;font-size:11px;cursor:pointer;white-space:nowrap;margin-left:4px">⛶ 全屏</button>
 </div>
 <div id="viewerContainer"><div id="wrapper"></div></div>
 <script src="./panzoom.min.js"></script>
@@ -108,6 +111,10 @@ pageInput.onchange=()=>goPage(parseInt(pageInput.value,10)||1);
 document.getElementById('zoomIn').onclick=()=>{const s=parseFloat(scaleSelect.value)||1;applyScale(Math.min(4,s*1.3))};
 document.getElementById('zoomOut').onclick=()=>{const s=parseFloat(scaleSelect.value)||1;applyScale(Math.max(0.25,s/1.3))};
 scaleSelect.onchange=()=>{const v=scaleSelect.value;if(v==='page-width'||v==='page-fit'){applyScale(v)}else{applyScale(v)}};
+document.getElementById('fullscreenBtn').onclick=()=>{
+  if(!document.fullscreenElement){document.documentElement.requestFullscreen().catch(()=>{})}
+  else{document.exitFullscreen().catch(()=>{})}
+};
 
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
@@ -115,8 +122,17 @@ document.addEventListener('keydown',e=>{
   else if(e.key==='ArrowLeft'||e.key==='ArrowUp')goPage(pageNum-1);
   else if(e.key==='+'||e.key==='='){const s=parseFloat(scaleSelect.value)||1;applyScale(Math.min(4,s*1.3))}
   else if(e.key==='-'){const s=parseFloat(scaleSelect.value)||1;applyScale(Math.max(0.25,s/1.3))}
-  else if(e.key==='f'&&!e.ctrlKey&&!e.metaKey){document.getElementById('toolbar').style.display=document.getElementById('toolbar').style.display==='none'?'flex':'none'}
-  else if(e.key==='Escape'){if(document.getElementById('toolbar').style.display==='none')document.getElementById('toolbar').style.display='flex'}
+  else if(e.key==='f'&&!e.ctrlKey&&!e.metaKey){
+    if(!document.fullscreenElement){document.documentElement.requestFullscreen().catch(()=>{})}
+    else{document.exitFullscreen().catch(()=>{})}
+  }
+});
+
+// 全屏变化时自动隐藏/显示工具栏
+document.addEventListener('fullscreenchange',()=>{
+  const tb=document.getElementById('toolbar');
+  if(document.fullscreenElement){tb.style.display='none';container.style.top='0'}
+  else{tb.style.display='flex';container.style.top='28px'}
 });
 
 loadPdf().catch(e=>{wrapper.innerHTML=`<div style="color:#f66;text-align:center;padding:40px">加载失败: ${e.message}</div>`});
