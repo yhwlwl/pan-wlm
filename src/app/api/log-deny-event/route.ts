@@ -11,6 +11,7 @@ const ALLOWED_ORIGINS = [
   'deny.tantantan.tech',
   'pan.tantantan.tech',
   'pan.cdqzsta.tech',
+  'wlm.cdqzsta.tech',
   'localhost',
 ];
 

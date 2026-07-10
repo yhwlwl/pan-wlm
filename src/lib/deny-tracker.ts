@@ -257,7 +257,7 @@ export async function logDenyEvent(input: DenyEventInput): Promise<DenyResult> {
       geo_region: input.geoRegion || '',
       ip_risk_at_time: 0,
       dc_risk_at_time: 0,
-      source: input.source || 'pan',
+      source: input.source || process.env.APP_SOURCE || 'pan',
     };
     const { error: insertErr } = await pgInsert('bdpan_deny_events', eventRecord);
     if (insertErr) {
@@ -300,7 +300,7 @@ export async function logDenyEvent(input: DenyEventInput): Promise<DenyResult> {
           ip: '127.0.0.1',
           location: '系统',
           log_text: `[自动封禁] IP ${input.ip} 因风险评分 ${Math.round(ipScore)} 超过阈值 ${thresholds.ipBan}，自动封禁 ${thresholds.banHours} 小时。最近触发: ${input.denyReason}`,
-          source: input.source || 'pan',
+          source: input.source || process.env.APP_SOURCE || 'pan',
         }).catch(() => {});
       } catch (e) {
         console.warn('[deny-tracker] IP 自动封禁失败:', e);
@@ -348,7 +348,7 @@ export async function logDenyEvent(input: DenyEventInput): Promise<DenyResult> {
           ip: '127.0.0.1',
           location: '系统',
           log_text: `[自动封禁] 设备 ${deviceCodeHash} 因风险评分 ${Math.round(dcScore)} 超过阈值 ${thresholds.deviceBan}，自动封禁 ${thresholds.banHours} 小时。最近触发: ${input.denyReason}`,
-          source: input.source || 'pan',
+          source: input.source || process.env.APP_SOURCE || 'pan',
         }).catch(() => {});
       }
 
