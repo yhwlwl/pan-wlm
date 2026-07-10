@@ -19,7 +19,7 @@ export async function POST(req: Request) {
             ip_address: (body.ip || ip).split(',')[0].trim(),
             user_agent: body.device || '',
             city, region, country,
-            page_source: body.source || 'pan',
+            page_source: body.source || process.env.APP_SOURCE || 'weilaimeng',
             username: body.username || '访客',
             session_id: body.session_id || '',
             blocked: body.blocked || false,

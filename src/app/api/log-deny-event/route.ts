@@ -55,7 +55,7 @@ export async function POST(request: Request): Promise<Response> {
       geo_country,
       geo_city,
       geo_region,
-      source = 'pan',
+      source = process.env.APP_SOURCE || 'weilaimeng',
     } = body;
 
     // IP 优先用请求头，前端传空时自动补（保证去重和评分有真实 IP）

@@ -590,7 +590,7 @@ export default function Home() {
               region: data.region || '',
               city: data.city || '',
               device: navigator.userAgent,
-              source: 'pan'
+              source: APP_SOURCE
             })
           }).catch(() => { });
         })
@@ -598,7 +598,7 @@ export default function Home() {
           fetch(`${API_BASE}/api/track`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: trackedUsername, time: new Date().toISOString(), device: navigator.userAgent, source: 'pan' })
+            body: JSON.stringify({ username: trackedUsername, time: new Date().toISOString(), device: navigator.userAgent, source: APP_SOURCE })
           }).catch(() => { });
         });
     }
