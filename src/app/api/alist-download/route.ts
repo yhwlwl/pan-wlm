@@ -81,7 +81,7 @@ export async function GET(request: Request) {
         const basePerms = await getUserPermissions(user.username, user.role);
         const absolutePath = applyBasePathForPermissions(path, basePerms.basePath);
         const isPreview = searchParams.get('preview') === '1';
-        const logSource = searchParams.get('source') || 'pan';
+        const logSource = searchParams.get('source') || process.env.APP_SOURCE || 'weilaimeng';
         console.log(`[download] path=${path}, absolutePath=${absolutePath}, user=${user.username}, role=${user.role}, isPreview=${isPreview}`);
         const pathPerms = await getEffectivePermissionsForPath(user.username, user.role, absolutePath);
         console.log(`[download] perms: download=${pathPerms.download}, preview=${pathPerms.preview}, view=${pathPerms.view}`);

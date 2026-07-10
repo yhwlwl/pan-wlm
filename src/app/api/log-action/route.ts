@@ -4,7 +4,7 @@ import { pgInsert } from '../../../lib/pg-adapter';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { username = '游客', action_type, action_item, session_id, fingerprint, device_code = '', source = 'pan' } = body;
+    const { username = '游客', action_type, action_item, session_id, fingerprint, device_code = '', source = process.env.APP_SOURCE || 'weilaimeng' } = body;
 
     const forwardedFor = req.headers.get('x-forwarded-for');
     const realIp = req.headers.get('x-real-ip');
