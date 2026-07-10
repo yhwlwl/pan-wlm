@@ -121,7 +121,7 @@ export default function Home() {
   const [alistCopyLinkModal, setAlistCopyLinkModal] = useState<{ url: string; fileName: string } | null>(null);
   const [nodeLatencies, setNodeLatencies] = useState<Record<string, number | null>>({});
   const [isCompressing, setIsCompressing] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: any; filePath: string } | null>(null);
   const [batchModeModal, setBatchModeModal] = useState<{ folders: Array<{ name: string; filePath: string }>; files: Array<{ name: string; file: any; filePath: string }> } | null>(null);
   const [t2Progress, setT2Progress] = useState<{ current: number; total: number; msg: string } | null>(null);
@@ -139,8 +139,6 @@ export default function Home() {
 
   // 更新日志弹窗
   const [showChangelog, setShowChangelog] = useState(false);
-  // 使用手册弹窗
-  const [showManual, setShowManual] = useState(false);
 
   // 管理面板
   const [showAdminPanel, setShowAdminPanel] = useState(false);
@@ -1765,7 +1763,7 @@ export default function Home() {
           <div className="text-center mb-6">
             <div className="text-3xl mb-2">☁️</div>
             <h1 className="text-xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>成都七中STA · 科协网盘</h1>
-            <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>成都七中科学技术协会 · 百度网盘文件共享平台</p>
+            <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>未来梦杂志在线阅读平台</p>
           </div>
           <div className="space-y-3">
             <input
@@ -1829,7 +1827,7 @@ export default function Home() {
       <header className="h-12 glass-strong flex items-center justify-between px-4 md:px-6 text-[10px] font-bold tracking-widest shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
         <div className="flex items-center gap-3">
           <span className="text-base">☁️</span>
-          <span style={{ color: 'var(--accent)' }} className="uppercase">STA-PAN</span>
+          <span style={{ color: 'var(--accent)' }} className="uppercase">未来梦杂志在线阅读平台</span>
           <span className="opacity-30">|</span>
           <span className="text-emerald-500 hidden sm:inline">ONLINE</span>
         </div>
@@ -1884,14 +1882,6 @@ export default function Home() {
               ⚙️ 设置
             </button>
           )}
-          <button
-            onClick={() => setShowManual(true)}
-            className="text-[10px] hover:opacity-80 transition-opacity tracking-widest flex items-center gap-1"
-            style={{ color: 'var(--accent)' }}
-          >
-            📖 说明
-          </button>
-          <span className="opacity-30">|</span>
           <button onClick={handleLogout} className="text-[10px] hover:opacity-80 transition-opacity tracking-widest" style={{ color: 'var(--text-muted)' }}>
             退出
           </button>
@@ -2845,189 +2835,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 使用说明弹窗 */}
-      {showManual && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={() => setShowManual(false)}>
-          <div className="w-full max-w-xl max-h-[85vh] flex flex-col glass-strong rounded-3xl overflow-hidden animate-in shadow-2xl border border-white/10" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
-              <div className="flex items-center gap-3">
-                <span className="text-xl">📖</span>
-                <div>
-                  <h3 className="text-base font-bold text-accent">STA-PAN 使用指南</h3>
-                  <div className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>如何获得最满速的下载体验？</div>
-                </div>
-              </div>
-              <button onClick={() => setShowManual(false)} className="hover:opacity-100 opacity-60 transition-opacity p-2 -mr-2 text-lg">✕</button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
-              <section className="space-y-4">
-                <h4 className="text-xs font-black uppercase tracking-wider text-accent border-l-2 border-accent pl-2">1. 关于下载限制与本站优势</h4>
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
-                  <p className="text-xs leading-relaxed text-zinc-100">
-                    <span className="font-bold text-pink-400">为什么会有这么多复杂的下载方式？</span><br />
-                    百度网盘会校验客户端的 <code className="text-[10px] bg-black/30 px-1 py-0.5 rounded text-pink-300">User-Agent: pan.baidu.com</code>，如果不携带正确的 UA，下载请求会被阻断（返回 403 错误）。为了统一 IP 来源、避免触发百度风控，所有百度网盘文件均通过以下方式下载。
-                  </p>
-                  <div className="h-px w-full bg-white/10"></div>
-                  <p className="text-xs leading-relaxed text-zinc-100">
-                    <span className="font-bold text-emerald-200">STA-PAN 的最大优势：对手机端极度友好！</span><br />
-                    如果你直接使用AList，也就是之前的那个版本，手机上通常只能靠专门抓包或安装带有改 UA 功能的特殊浏览器/插件才能下载大文件。
-                    <br />而在本站：我们通过 <span className="font-bold text-blue-100">阿里云节点中转</span> 或是 <span className="font-bold text-blue-100">Cloudflare中转</span>，在云端帮你**自动补齐了 UA**，所以你在手机上可以像下普通文件一样，直接浏览器点击完成极速下载，完全**免除任何插件配置。**只不过会牺牲速度，但总比在手机上下不了好
-                  </p>
-                </div>
-              </section>
-
-              <section className="space-y-4">
-                <h4 className="text-xs font-black uppercase tracking-wider text-accent border-l-2 border-accent pl-2">下载方式对比</h4>
-                <div className="grid grid-cols-1 gap-4">
-                  {/* 阿里云极速线路 */}
-                  <div className="p-4 rounded-2xl bg-pink-600/10 border border-pink-500/30">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm">🚀</span>
-                      <span className="text-sm font-black uppercase text-pink-100 italic">阿里云极速线路 (最推荐)</span>
-                    </div>
-                    <p className="text-xs leading-relaxed text-zinc-100 mb-2">
-                      利用阿里云国内 BGP 骨干网中转，自动处理百度 UA。
-                    </p>
-                    <div className="space-y-1.5 pt-2 border-t border-pink-500/10">
-                      <div className="text-[11px] flex items-center gap-2">
-                        <span className="text-white font-bold shrink-0">✅ 推荐度:</span>
-                        <span className="text-pink-400 font-bold">⭐⭐⭐⭐⭐ (最快的)</span>
-                      </div>
-                      <div className="text-[11px] flex items-start gap-2">
-                        <span className="text-white font-bold shrink-0">✨ 优点:</span>
-                        <span className="text-pink-100">国内线路，速度极快，对手机浏览器直下最友好。</span>
-                      </div>
-                    </div>
-                  </div>
-                  {/* CF 边缘加速 */}
-                  <div className="p-4 rounded-2xl bg-blue-600/10 border border-blue-500/30">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm">☁️</span>
-                      <span className="text-sm font-black uppercase text-blue-100">Cloudflare 边缘加速</span>
-                    </div>
-                    <p className="text-xs leading-relaxed text-zinc-100 mb-2">
-                      通过部署在海外的 CF Workers 节点中转文件请求，绕过国内直连限制。
-                    </p>
-                    <div className="space-y-1.5 pt-2 border-t border-blue-500/10">
-                      <div className="text-[11px] flex items-center gap-2">
-                        <span className="text-white font-bold shrink-0">✅ 推荐度:</span>
-                        <span className="text-blue-300 font-bold">⭐⭐⭐</span>
-                      </div>
-                      <div className="text-[11px] flex items-start gap-2">
-                        <span className="text-white font-bold shrink-0">✨ 优点:</span>
-                        <span className="text-blue-100">不通过阿里云，在阿里云服务器失效时作为首选下载方案</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* IDM 直链 */}
-                  <div className="p-4 rounded-2xl bg-emerald-600/10 border border-emerald-500/30">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm">🚀</span>
-                      <span className="text-sm font-black uppercase text-emerald-200">复制直链 (搭配 IDM/迅雷)</span>
-                    </div>
-                    <p className="text-xs leading-relaxed text-zinc-100 mb-2">
-                      直接调取百度网盘 CDN 原始地址。配合多线程下载器可突破单线程限速。
-                    </p>
-                    <div className="space-y-1.5 pt-2 border-t border-emerald-500/10">
-                      <div className="text-[11px] flex items-center gap-2">
-                        <span className="text-white font-bold shrink-0">✅ 推荐度:</span>
-                        <span className="text-emerald-300 font-bold">⭐⭐⭐⭐⭐ (满速)</span>
-                      </div>
-                      <div className="text-[11px] flex items-start gap-2">
-                        <span className="text-white font-bold shrink-0">✨ 优点:</span>
-                        <span className="text-emerald-100 font-bold">速度可达 50MB/s。由于是点对点下载</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 服务器中转 */}
-                  <div className="p-4 rounded-2xl bg-pink-600/10 border border-pink-500/30 opacity-90">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm">🔥</span>
-                      <span className="text-sm font-black uppercase text-pink-100">vercel中转下载</span>
-                    </div>
-                    <p className="text-xs leading-relaxed text-zinc-100 mb-2">
-                      由 vercel 服务器代理加UA，每个月有7G下载限额，不推荐
-                    </p>
-                    <div className="space-y-1.5 pt-2 border-t border-pink-500/10">
-                      <div className="text-[11px] flex items-center gap-2">
-                        <span className="text-white font-bold shrink-0">⚠️ 推荐度:</span>
-                        <span className="text-pink-300 font-bold">⭐ (仅做故障备用)</span>
-                      </div>
-                      <div className="text-[11px] flex items-start gap-2">
-                        <span className="text-white font-bold shrink-0">❌ 缺点:</span>
-                        <span className="text-pink-100">消耗服务器有限的带宽与流量（每个月只有7G），请尽量避开。</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              {/* IDM 配置指南 */}
-              <section className="space-y-4">
-                <h4 className="text-xs font-black uppercase tracking-wider text-accent border-l-2 border-accent pl-2">3. IDM/NDM 满速配置教程 (极速 50MB/s)</h4>
-                <div className="p-5 rounded-3xl bg-white/5 border border-white/10 space-y-4">
-                  <div className="flex items-start gap-4">
-                    <div className="w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</div>
-                    <p className="text-xs text-zinc-100">下载安装官方版 <a href="https://zhuanlan.zhihu.com/p/1977103358688002514" target="_blank" className="text-accent underline font-bold">IDM（NDM同理）</a> (电脑端专用)。</p>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">2</div>
-                    <p className="text-xs text-zinc-100">
-                      进入设置：<span className="font-bold text-white border-b border-white/30">选项 (Options) -&gt; 下载 (Downloads)</span>。
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">3</div>
-                    <div className="flex-1 space-y-3">
-                      <p className="text-xs text-zinc-100">在底部找到 <span className="font-bold text-white uppercase tracking-tighter">“手动添加任务时使用的 UA”</span>，复制填写：</p>
-                      <code className="block p-3 rounded-xl bg-black border border-white/20 text-sm font-mono text-pink-400 select-all text-center">pan.baidu.com</code>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">4</div>
-                    <p className="text-xs text-zinc-100">在网盘点击 <span className="text-emerald-400 font-bold underline">复制直链</span>，在 IDM 中新建粘贴即可起飞。</p>
-                  </div>
-                </div>
-              </section>
-
-              {/* 大小文件逻辑汇总 */}
-              <section className="space-y-4">
-                <h4 className="text-xs font-black uppercase tracking-wider text-accent border-l-2 border-accent pl-2">4. 到底怎么下载？</h4>
-                <div className="p-4 rounded-2xl bg-emerald-600/10 border border-emerald-500/30 text-xs text-zinc-100 leading-relaxed shadow-lg">
-                  <div className="mb-2">
-                    <span className="text-emerald-400 font-bold">● 小于 20MB 的文件：</span>
-                    点击文件列表中的文件，<span className="text-white font-bold bg-emerald-400/20 px-1 py-0.5 rounded">直接下载</span>，无需任何额外操作！
-                  </div>
-                  <div>
-                    <span className="text-pink-400 font-bold">● 大于 20MB 的文件：</span>
-                    因受百度网盘限制，点击大文件后会弹出备选通道（参见上面的第 2 点）。
-                    <ul className="list-disc pl-5 mt-2 space-y-1.5 text-[11px] text-zinc-300">
-                      <li><strong className="text-blue-300">手机端直接点：</strong> 无脑选第一个 <span className="bg-blue-500/20 px-1 py-0.5 rounded">阿里云服务器代理下载</span>，这是手机端满速、免插件的最优解。</li>
-                      <li><strong className="text-emerald-300">电脑端最快下载：</strong> 如果有 IDM 或迅雷或NDM，选第二个 <span className="bg-emerald-500/20 px-1 py-0.5 rounded">复制直链</span>。</li>
-                      <li>如果阿里云挂了，选cloudflare。上述挂了，才选“vercel”（尽量少用）。</li>
-                    </ul>
-                  </div>
-                </div>
-              </section>
-
-
-            </div>
-
-            <div className="p-4 border-t" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
-              <button
-                onClick={() => setShowManual(false)}
-                className="w-full py-2.5 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 transition-opacity shadow-lg shadow-accent/20"
-              >
-                我知道了，去下载文件
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 文件预览弹窗 */}
       {previewItemMeta && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 backdrop-blur-xl" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={() => { setPreviewFile(null); setPreviewText(''); setPreviewItemMeta(null); setArchiveItems([]); }}>
@@ -3116,7 +2923,7 @@ export default function Home() {
             <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-card)' }}>
               <div>
                 <h3 className="text-base font-bold text-accent">更新日志 (Changelog)</h3>
-                <div className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>STA-PAN 开发历程记录</div>
+                <div className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>WLM-PAN 阅读站开发记录</div>
               </div>
               <button onClick={() => setShowChangelog(false)} className="hover:opacity-100 opacity-60 transition-opacity p-2 -mr-2 text-lg">✕</button>
             </div>
@@ -3562,7 +3369,7 @@ export default function Home() {
             {/* 头部工具栏 */}
             <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-card)' }}>
               <div className="flex items-center gap-2 whitespace-nowrap shrink-0">
-                <span className="text-[10px] font-black tracking-widest uppercase italic" style={{ color: 'var(--text-muted)' }}>Cloud_Drive</span>
+                <span className="text-[10px] font-black tracking-widest uppercase italic" style={{ color: 'var(--text-muted)' }}>未来梦杂志</span>
                 <span className="text-[10px] hidden sm:inline" style={{ color: 'var(--text-faint)' }}>· AList</span>
               </div>
               <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -4304,7 +4111,7 @@ export default function Home() {
           </button>
         </div>
         <div>© {new Date().getFullYear()} 成都七中科学技术协会 (STA)</div>
-        <div className="mt-1 opacity-80">本网站由25级网络部搭建运营。</div>
+        <div className="mt-1 opacity-80">未来梦杂志 · 25级网络部搭建运营</div>
       </footer>
 
       {/* 右键菜单 */}
