@@ -41,6 +41,23 @@ export interface FilePermissionRule {
 
 export type DownloadModeState = 'enabled' | 'disabled' | 'hidden';
 
+export interface DenyTrackingConfig {
+    enabled?: boolean;
+    warnThreshold?: number;
+    deviceBanThreshold?: number;
+    ipBanThreshold?: number;
+    banDurationHours?: number;
+    scoreMap?: Record<string, number>;
+    decayWindowHours?: number;
+    dedupWindowMinutes?: number;
+    devicePostBanScore?: number;
+    ipPostBanScore?: number;
+    firstBanMinutes?: number;
+    secondBanHours?: number;
+    thirdBanHours?: number;
+    banEscalationThreshold?: number;
+}
+
 export interface GlobalSettings {
     enableGuestMode: boolean;
     permissions?: Record<string, UserPermissions>;
@@ -58,6 +75,32 @@ export interface GlobalSettings {
     hideAlistButton?: boolean;
     announcement?: string;
     sessionDurationHours?: number;
+    refreshInterval?: number;
+    // 站点外观
+    siteTitle?: string;
+    siteSubtitle?: string;
+    siteFooter?: string;
+    defaultViewMode?: 'grid' | 'list';
+    textPreviewMaxMB?: number;
+    // 文件操作限制
+    maxBatchDownload?: number;
+    maxUploadSizeMB?: number;
+    // 登录与频率限制
+    maxFailedLogins?: number;
+    failedLoginWindowMinutes?: number;
+    maxConcurrentSessions?: number;
+    // 数据保留（天，0=永久）
+    actionLogRetentionDays?: number;
+    denyEventRetentionDays?: number;
+    visitLogRetentionDays?: number;
+    // 公告系统（多公告支持）
+    announcements?: { id: string; content: string; active: boolean; targetAudience: 'all' | 'guest' | 'user'; scheduledAt: string | null; publishedAt: string | null; createdAt: string; updatedAt: string }[];
+    // 风控详细配置
+    denyTracking?: DenyTrackingConfig;
+    // 应急/维护
+    maintenanceMode?: boolean;
+    tokenInvalidBefore?: number;
+    maintenanceSnapshot?: any;
 }
 
 export type UserWithPermissions = Omit<User, 'password'> & { permissions: UserPermissions };
@@ -160,6 +203,32 @@ export async function getSettings(): Promise<GlobalSettings> {
         bannedIps: (val.bannedIps || {}) as Record<string, number>,
         announcement: typeof val.announcement === 'string' ? val.announcement : '',
         sessionDurationHours: typeof val.sessionDurationHours === 'number' ? val.sessionDurationHours : 8,
+        refreshInterval: typeof val.refreshInterval === 'number' ? val.refreshInterval : 60,
+        // 站点外观
+        siteTitle: typeof val.siteTitle === 'string' ? val.siteTitle : undefined,
+        siteSubtitle: typeof val.siteSubtitle === 'string' ? val.siteSubtitle : undefined,
+        siteFooter: typeof val.siteFooter === 'string' ? val.siteFooter : undefined,
+        defaultViewMode: (val.defaultViewMode === 'grid' || val.defaultViewMode === 'list') ? val.defaultViewMode : undefined,
+        textPreviewMaxMB: typeof val.textPreviewMaxMB === 'number' ? val.textPreviewMaxMB : 2,
+        // 文件操作限制
+        maxBatchDownload: typeof val.maxBatchDownload === 'number' ? val.maxBatchDownload : 0,
+        maxUploadSizeMB: typeof val.maxUploadSizeMB === 'number' ? val.maxUploadSizeMB : 0,
+        // 登录与频率限制
+        maxFailedLogins: typeof val.maxFailedLogins === 'number' ? val.maxFailedLogins : 0,
+        failedLoginWindowMinutes: typeof val.failedLoginWindowMinutes === 'number' ? val.failedLoginWindowMinutes : 15,
+        maxConcurrentSessions: typeof val.maxConcurrentSessions === 'number' ? val.maxConcurrentSessions : 0,
+        // 数据保留
+        actionLogRetentionDays: typeof val.actionLogRetentionDays === 'number' ? val.actionLogRetentionDays : 0,
+        denyEventRetentionDays: typeof val.denyEventRetentionDays === 'number' ? val.denyEventRetentionDays : 0,
+        visitLogRetentionDays: typeof val.visitLogRetentionDays === 'number' ? val.visitLogRetentionDays : 0,
+        // 风控详细配置
+        denyTracking: (val.denyTracking || {}) as DenyTrackingConfig,
+        // 公告系统（向后兼容：旧 announcement 字符串自动迁移）
+        announcements: Array.isArray(val.announcements) ? (val.announcements as GlobalSettings['announcements']) : [],
+        // 应急/维护
+        maintenanceMode: typeof val.maintenanceMode === 'boolean' ? val.maintenanceMode : false,
+        tokenInvalidBefore: typeof val.tokenInvalidBefore === 'number' ? val.tokenInvalidBefore : 0,
+        maintenanceSnapshot: (val.maintenanceSnapshot || undefined) as any,
     };
 }
 

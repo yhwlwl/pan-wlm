@@ -103,6 +103,12 @@ export async function POST(request: Request) {
             return NextResponse.json({ code: 401, message: '请先登录' }, { status: 401 });
         }
 
+        // 维护模式：非 admin 全部拒绝
+        const settings = await getSettings();
+        if (settings.maintenanceMode && user.role !== 'admin') {
+            return NextResponse.json({ code: 403, message: '站点维护中，请稍后再试' }, { status: 403 });
+        }
+
         console.log(`[alist] ${action} start, path=${path}, user=${user.username}, role=${user.role}, time=${Date.now() - startTime}ms`);
 
         const customUrl = request.headers.get('x-alist-url');
