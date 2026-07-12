@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useAdmin } from "../lib/admin-context";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://pan.tantantan.tech/wlm-api";
+
 export default function Visits() {
-  const { adminStats, adminSettings, isAdmin, adminAction, fetchAllData, canModify, loading } = useAdmin();
+  const { adminStats, adminSettings, isAdmin, adminAction, fetchAllData, canModify, loading, token } = useAdmin();
   const [ipSort, setIpSort] = useState<"count" | "time" | "flow">("count");
   const [ipLimit, setIpLimit] = useState(5);
   const [banInput, setBanInput] = useState<{ ip: string; show: boolean }>({ ip: "", show: false });
@@ -28,6 +30,14 @@ export default function Visits() {
     const banUntil = Date.now() + hours * 3600 * 1000;
     const newBanned = { ...bannedIps, [ip]: banUntil };
     await adminAction("updateSettings", { settings: { bannedIps: newBanned } });
+    // 同步标记 risk_scores
+    try {
+      await fetch(`${API_BASE}/api/deny-stats`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "ban_ip", entity_type: "ip", entity_value: ip, ban_hours: hours }),
+      });
+    } catch {}
     fetchAllData();
     setBanInput({ ip: "", show: false });
   };
@@ -36,6 +46,14 @@ export default function Visits() {
     const newBanned = { ...bannedIps };
     delete newBanned[ip];
     await adminAction("updateSettings", { settings: { bannedIps: newBanned } });
+    // 同步清除 risk_scores 的封禁状态
+    try {
+      await fetch(`${API_BASE}/api/deny-stats`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "unban", entity_type: "ip", entity_value: ip }),
+      });
+    } catch {}
     fetchAllData();
   };
 

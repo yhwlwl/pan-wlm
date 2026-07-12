@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAdmin } from "../lib/admin-context";
 
 const CHANNELS = [
@@ -20,9 +20,20 @@ const colorMap: Record<string, { bg: string; text: string; border: string }> = {
 };
 
 export default function Downloads() {
-  const { adminStats, loading } = useAdmin();
+  const { adminStats, adminSettings, adminAction, fetchAllData, canModify, loading } = useAdmin();
   const [expandedChannel, setExpandedChannel] = useState<string | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
+  const [modes, setModes] = useState<Record<string, string>>({});
+
+  // 从 settings 同步下载通道模式
+  useEffect(() => {
+    if (adminSettings?.downloadModes) setModes({ ...adminSettings.downloadModes });
+  }, [adminSettings]);
+
+  const saveModes = async () => {
+    await adminAction("updateSettings", { settings: { ...adminSettings, downloadModes: modes } });
+    fetchAllData();
+  };
 
   if (loading || !adminStats) {
     return <div className="text-slate-500 text-sm py-12 text-center">⏳ 加载数据中...</div>;
@@ -103,6 +114,36 @@ export default function Downloads() {
           </div>
         </div>
       )}
+
+      {/* 下载通道控制 */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-slate-700">通道控制</h3>
+          <button onClick={saveModes} disabled={!canModify("settings.global")} className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-30">保存</button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[
+            { key: "ecs", label: "ECS 极速下载" },
+            { key: "cf", label: "Cloudflare 边缘加速" },
+            { key: "raw", label: "复制直链 (迅雷/IDM)" },
+            { key: "vercel", label: "Vercel 中转下载" },
+            { key: "direct302", label: "302 直链跳转" },
+          ].map(ch => (
+            <div key={ch.key} className="flex items-center justify-between gap-2">
+              <span className="text-xs text-slate-600 truncate">{ch.label}</span>
+              <select
+                value={modes[ch.key] || "enabled"}
+                onChange={e => setModes({ ...modes, [ch.key]: e.target.value })}
+                className="border border-slate-200 rounded px-2 py-1 text-[10px] bg-white"
+              >
+                <option value="enabled">可用</option>
+                <option value="disabled">禁用</option>
+                <option value="hidden">隐藏</option>
+              </select>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* 全部历史下载弹窗 */}
       {showAllHistory && (

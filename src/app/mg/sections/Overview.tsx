@@ -92,7 +92,7 @@ export default function Overview() {
               <div className="px-5 py-6 text-center text-xs text-slate-400">暂无操作记录</div>
             ) : (
               recentActions.map((log: any, i: number) => (
-                <div key={i} className="px-5 py-2.5 flex items-center gap-3 text-xs">
+                <div key={i} className="px-5 py-2.5 flex items-center gap-2 text-xs">
                   <span className="text-slate-400 font-mono shrink-0 w-14">
                     {new Date(log.time).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
                   </span>
@@ -100,7 +100,9 @@ export default function Overview() {
                     {log.action?.length > 4 ? log.action.slice(0, 4) + "…" : log.action || "—"}
                   </span>
                   <span className="text-slate-600 font-medium shrink-0">{log.username}</span>
-                  <span className="text-slate-400 truncate">{log.item}</span>
+                  <span className="text-slate-400 truncate max-w-[120px]" title={log.item}>{log.item}</span>
+                  <span className="text-slate-400 font-mono text-[10px] shrink-0 hidden sm:inline" title={log.ip}>{log.ip}</span>
+                  <span className="text-slate-400 font-mono text-[10px] shrink-0 hidden lg:inline" title={log.device_code}>{(log.device_code || "").slice(0, 10) || "—"}</span>
                 </div>
               ))
             )}

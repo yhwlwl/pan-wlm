@@ -24,6 +24,7 @@ export interface UserPermissions {
     setting: boolean;
     controlFile?: boolean;
     basePath?: string;
+    mgAccess?: boolean; // 主站显示管理按钮，可进入 /mg
     viewStats?: boolean;
     viewActionLogs?: boolean;
     viewIpStats?: boolean;
@@ -267,6 +268,7 @@ export async function getUserPermissions(username: string, role: Role): Promise<
         viewActionLogs: false,
         viewIpStats: false,
         viewDownloadLogs: false,
+        mgAccess: false,
     };
 
     const defaultGuest: UserPermissions = {
@@ -284,6 +286,7 @@ export async function getUserPermissions(username: string, role: Role): Promise<
         viewActionLogs: false,
         viewIpStats: false,
         viewDownloadLogs: false,
+        mgAccess: false,
     };
 
     if (role === 'admin') {
@@ -297,6 +300,7 @@ export async function getUserPermissions(username: string, role: Role): Promise<
             preview: true,
             setting: true,
             controlFile: true,
+            mgAccess: true,
             basePath: '/',
         };
     }

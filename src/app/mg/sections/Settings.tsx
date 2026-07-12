@@ -91,6 +91,7 @@ export default function Settings() {
           <NumField label="会话时长 (小时)" value={s.sessionDurationHours ?? 8} min={1} max={720} onChange={v => setS({ ...s, sessionDurationHours: v })} />
           <NumField label="后台刷新间隔 (秒)" value={s.refreshInterval ?? 60} min={10} max={3600} onChange={v => setS({ ...s, refreshInterval: v })} />
         </div>
+
         <button onClick={save} disabled={!canModify("settings.global")} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-30 mt-4">保存设置</button>
       </Card>
 
@@ -118,7 +119,6 @@ export default function Settings() {
           <NumField label="警告阈值" value={dt.warnThreshold ?? 30} min={1} max={200} onChange={v => setDt({ ...dt, warnThreshold: v })} />
           <NumField label="设备封禁阈值" value={dt.deviceBanThreshold ?? 50} min={1} max={200} onChange={v => setDt({ ...dt, deviceBanThreshold: v })} />
           <NumField label="IP 封禁阈值" value={dt.ipBanThreshold ?? 70} min={1} max={200} onChange={v => setDt({ ...dt, ipBanThreshold: v })} />
-          <NumField label="封禁时长 (时)" value={dt.banDurationHours ?? 24} min={1} max={720} onChange={v => setDt({ ...dt, banDurationHours: v })} />
           <NumField label="IP 解封后重置分" value={dt.ipPostBanScore ?? 60} min={0} max={200} onChange={v => setDt({ ...dt, ipPostBanScore: v })} />
           <NumField label="设备解封后重置分" value={dt.devicePostBanScore ?? 40} min={0} max={200} onChange={v => setDt({ ...dt, devicePostBanScore: v })} />
         </div>
