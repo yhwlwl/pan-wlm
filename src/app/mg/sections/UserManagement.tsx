@@ -14,8 +14,26 @@ const ROLE_LABELS: Record<string, string> = {
   admin: "超级管理员", manager: "管理员", guest: "游客",
 };
 
+const RISK_OPTIONS = [
+  { v: 0, label: "无" }, { v: 1, label: "低(1)" }, { v: 2, label: "中(2)" },
+  { v: 3, label: "高(3)" }, { v: 4, label: "极高(4)" }, { v: 5, label: "紧急(5)" }, { v: 6, label: "超管(6)" },
+];
+
+const MG_SECTIONS = [
+  { key: "mgOverview", label: "总览" },
+  { key: "mgDownloads", label: "下载明细" },
+  { key: "mgVisits", label: "访问日志" },
+  { key: "mgActionLogs", label: "操作日志" },
+  { key: "mgAnnouncements", label: "公告" },
+  { key: "mgFilePerms", label: "文件权限" },
+  { key: "mgUsers", label: "用户管理" },
+  { key: "mgRiskControl", label: "风控管理" },
+  { key: "mgSettings", label: "设置" },
+  { key: "mgEmergency", label: "应急" },
+];
+
 export default function UserManagement() {
-  const { adminUsers, adminStats, denyDashboard, adminAction, fetchAllData, loading } = useAdmin();
+  const { adminUsers, adminStats, denyDashboard, adminAction, fetchAllData, canModify, loading } = useAdmin();
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [newUserName, setNewUserName] = useState("");
   const [newUserPass, setNewUserPass] = useState("");
@@ -121,7 +139,7 @@ export default function UserManagement() {
               <option value="guest">游客</option>
             </select>
           </div>
-          <button onClick={handleAddUser} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700">添加</button>
+          <button onClick={handleAddUser} disabled={!canModify("users.addUser")} title={!canModify("users.addUser") ? "无修改权限" : undefined} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed">添加</button>
         </div>
       </div>
 
@@ -154,7 +172,8 @@ export default function UserManagement() {
                     value={u.role}
                     onChange={(e) => { e.stopPropagation(); handleUpdateRole(u.username, e.target.value); }}
                     onClick={(e) => e.stopPropagation()}
-                    className="text-[10px] border border-slate-200 rounded px-2 py-1 text-slate-600 bg-white"
+                    disabled={!canModify("users.changeRole")}
+                    className="text-[10px] border border-slate-200 rounded px-2 py-1 text-slate-600 bg-white disabled:opacity-30"
                   >
                     <option value="admin">超级管理员</option>
                     <option value="manager">管理员</option>
@@ -162,7 +181,8 @@ export default function UserManagement() {
                   </select>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleRemoveUser(u.username); }}
-                    className="text-[10px] text-red-500 hover:text-red-700 px-2 py-1 hover:bg-red-50 rounded"
+                    disabled={!canModify("users.deleteUser")} title={!canModify("users.deleteUser") ? "无修改权限" : undefined}
+                    className="text-[10px] text-red-500 hover:text-red-700 px-2 py-1 hover:bg-red-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     删除
                   </button>
@@ -186,12 +206,12 @@ export default function UserManagement() {
                               checked={checked}
                               onChange={() => {
                                 const next = { ...currentPerms, [key]: !checked };
-                                // view 取消 → 禁用文件操作权限
                                 if (key === "view" && !checked) {
                                   ["search", "download", "upload", "delete", "rename", "preview"].forEach(k => { next[k] = false; });
                                 }
                                 handleUpdatePerms(u.username, next);
                               }}
+                              disabled={!canModify("users.changePerms")}
                               className="rounded"
                             />
                             <span className={checked ? "text-slate-700 font-medium" : "text-slate-400"}>{label}</span>
@@ -205,9 +225,49 @@ export default function UserManagement() {
                       <input
                         value={currentPerms.basePath || ""}
                         onChange={(e) => handleUpdatePerms(u.username, { ...currentPerms, basePath: e.target.value })}
-                        className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs w-full max-w-md"
+                        disabled={!canModify("users.editBasePath")}
+                        className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs w-full max-w-md disabled:opacity-30"
                         placeholder="/sta/..."
                       />
+                    </div>
+
+                    {/* 管理后台板块权限（风险分级） */}
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                      <div className="text-xs font-bold text-slate-500 mb-3">管理后台权限（风险分级）</div>
+                      <div className="space-y-2">
+                        {MG_SECTIONS.map(sec => {
+                          const mg = (currentPerms.mgPermissions || {})[sec.key] || { view: 0, modify: 0 };
+                          return (
+                            <div key={sec.key} className="flex items-center gap-2 text-xs">
+                              <span className="w-24 text-slate-600 shrink-0">{sec.label}</span>
+                              <span className="text-slate-400">查看</span>
+                              <select
+                                value={mg.view}
+                                onChange={e => {
+                                  const next = { ...(currentPerms.mgPermissions || {}), [sec.key]: { ...mg, view: parseInt(e.target.value) } };
+                                  handleUpdatePerms(u.username, { ...currentPerms, mgPermissions: next });
+                                }}
+                                disabled={!canModify("users.changePerms")}
+                                className="border border-slate-200 rounded px-1.5 py-0.5 text-[10px] bg-white disabled:opacity-30"
+                              >
+                                {RISK_OPTIONS.map(o => <option key={o.v} value={o.v}>{o.label}</option>)}
+                              </select>
+                              <span className="text-slate-400">修改</span>
+                              <select
+                                value={mg.modify}
+                                onChange={e => {
+                                  const next = { ...(currentPerms.mgPermissions || {}), [sec.key]: { ...mg, modify: parseInt(e.target.value) } };
+                                  handleUpdatePerms(u.username, { ...currentPerms, mgPermissions: next });
+                                }}
+                                disabled={!canModify("users.changePerms")}
+                                className="border border-slate-200 rounded px-1.5 py-0.5 text-[10px] bg-white disabled:opacity-30"
+                              >
+                                {RISK_OPTIONS.filter(o => o.v <= 5).map(o => <option key={o.v} value={o.v}>{o.label}</option>)}
+                              </select>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 

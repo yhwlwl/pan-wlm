@@ -6,7 +6,7 @@ import { useAdmin } from "../lib/admin-context";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://pan.tantantan.tech/wlm-api";
 
 export default function Emergency() {
-  const { adminStats, denyDashboard, adminSettings, adminAction, logAdminAction, fetchAllData, token } = useAdmin();
+  const { adminStats, denyDashboard, adminSettings, adminAction, logAdminAction, fetchAllData, canModify, token } = useAdmin();
   const [loading, setLoading] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -139,21 +139,21 @@ export default function Emergency() {
         <div className="bg-white rounded-xl border border-red-200 p-5">
           <h3 className="text-sm font-bold text-red-700 mb-2">全站维护模式</h3>
           <p className="text-xs text-slate-500 mb-4">踢出所有用户 · 关闭访客和下载 · 禁上传 · 发布维护公告 · 全量备份</p>
-          <button onClick={handleMaintenance} disabled={loading !== null} className="w-full bg-red-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-red-700 disabled:opacity-50">
+          <button onClick={handleMaintenance} disabled={loading !== null || !canModify("emergency.maintenance")} title={!canModify("emergency.maintenance") ? "无修改权限" : undefined} className="w-full bg-red-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-red-700 disabled:opacity-50">
             {loading === "maintenance" ? "执行中..." : "进入维护模式"}
           </button>
         </div>
         <div className="bg-white rounded-xl border border-green-200 p-5">
           <h3 className="text-sm font-bold text-green-700 mb-2">恢复运行</h3>
           <p className="text-xs text-slate-500 mb-4">恢复维护前的全部设置 · 停用维护公告 · 重新开放站点</p>
-          <button onClick={handleRestore} disabled={loading !== null || !adminSettings?.maintenanceSnapshot} className="w-full bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700 disabled:opacity-50">
+          <button onClick={handleRestore} disabled={loading !== null || !adminSettings?.maintenanceSnapshot || !canModify("emergency.restore")} title={!canModify("emergency.restore") ? "无修改权限" : undefined} className="w-full bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700 disabled:opacity-50">
             {loading === "restore" ? "恢复中..." : "恢复运行"}
           </button>
         </div>
         <div className="bg-white rounded-xl border border-amber-200 p-5">
           <h3 className="text-sm font-bold text-amber-700 mb-2">封禁所有在线 IP</h3>
           <p className="text-xs text-slate-500 mb-4">封禁当前所有在线 IP (1h) · 从活跃 IP 列表提取</p>
-          <button onClick={handleBanAllIPs} disabled={loading !== null} className="w-full bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-amber-700 disabled:opacity-50">
+          <button onClick={handleBanAllIPs} disabled={loading !== null || !canModify("emergency.banAllIPs")} title={!canModify("emergency.banAllIPs") ? "无修改权限" : undefined} className="w-full bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-amber-700 disabled:opacity-50">
             {loading === "ban" ? "封禁中..." : "封禁所有在线 IP (1h)"}
           </button>
         </div>

@@ -13,32 +13,33 @@ import UserManagement from "./sections/UserManagement";
 import FilePermissions from "./sections/FilePermissions";
 import Announcements from "./sections/Announcements";
 import Emergency from "./sections/Emergency";
+import RiskLabelConfig from "./sections/RiskLabelConfig";
 import Settings from "./sections/Settings";
 
-const TABS: { key: string; label: string; permKey?: string }[] = [
-  { key: "overview", label: "总览", permKey: "viewStats" },
-  { key: "downloads", label: "下载明细", permKey: "viewDownloadLogs" },
-  { key: "visits", label: "访问日志", permKey: "viewIpStats" },
-  { key: "action-logs", label: "操作日志", permKey: "viewActionLogs" },
-  { key: "risk-control", label: "风控管理" },
-  { key: "users", label: "用户管理" },
-  { key: "file-permissions", label: "文件权限" },
-  { key: "emergency", label: "应急" },
-  { key: "announcements", label: "公告" },
-  { key: "settings", label: "设置" },
+const TABS: { key: string; label: string; sectionKey: string; permKey?: string }[] = [
+  { key: "overview", label: "总览", sectionKey: "mgOverview", permKey: "viewStats" },
+  { key: "downloads", label: "下载明细", sectionKey: "mgDownloads", permKey: "viewDownloadLogs" },
+  { key: "visits", label: "访问日志", sectionKey: "mgVisits", permKey: "viewIpStats" },
+  { key: "action-logs", label: "操作日志", sectionKey: "mgActionLogs", permKey: "viewActionLogs" },
+  { key: "risk-control", label: "风控管理", sectionKey: "mgRiskControl" },
+  { key: "users", label: "用户管理", sectionKey: "mgUsers" },
+  { key: "file-permissions", label: "文件权限", sectionKey: "mgFilePerms" },
+  { key: "emergency", label: "应急", sectionKey: "mgEmergency" },
+  { key: "announcements", label: "公告", sectionKey: "mgAnnouncements" },
+  { key: "risk-labels", label: "风险标签", sectionKey: "mgSettings" },
+  { key: "settings", label: "设置", sectionKey: "mgSettings" },
 ];
 
 function MgContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { isAdmin, userPerms, loading } = useAdmin();
+  const { isAdmin, canView, loading } = useAdmin();
   const tab = searchParams.get("tab") || "overview";
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const visibleTabs = TABS.filter((t) => {
     if (isAdmin) return true;
-    if (!t.permKey) return false;
-    return userPerms?.[t.permKey] === true;
+    return canView(t.sectionKey);
   });
 
   useEffect(() => {
@@ -87,6 +88,7 @@ function MgContent() {
             {tab === "file-permissions" && <FilePermissions />}
             {tab === "emergency" && <Emergency />}
             {tab === "announcements" && <Announcements />}
+            {tab === "risk-labels" && <RiskLabelConfig />}
             {tab === "settings" && <Settings />}
           </div>
         </main>

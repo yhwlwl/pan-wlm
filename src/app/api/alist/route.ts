@@ -14,6 +14,19 @@ import {
 import { denyAndLog, getRequestContext, checkEntityBanned } from '../../../lib/deny-tracker';
 import { hashDeviceCode } from '../../../lib/fingerprint';
 
+// 维护模式缓存（30s），避免每个请求都读数据库
+let _maintenanceMode = false;
+let _lastMaintenanceCheck = 0;
+async function isMaintenanceMode(): Promise<boolean> {
+  if (Date.now() - _lastMaintenanceCheck < 30000) return _maintenanceMode;
+  try {
+    const s = await getSettings();
+    _maintenanceMode = s.maintenanceMode === true;
+    _lastMaintenanceCheck = Date.now();
+  } catch {}
+  return _maintenanceMode;
+}
+
 const ECS_URL = (process.env.NEXT_PUBLIC_ALIST_URL || 'https://pan.tantantan.tech:5245').replace(/\/+$/, '');
 const ECS_USER = process.env.ALIST_USERNAME || '';
 const ECS_PASS = process.env.ALIST_PASSWORD || '';
@@ -103,9 +116,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ code: 401, message: '请先登录' }, { status: 401 });
         }
 
-        // 维护模式：非 admin 全部拒绝
-        const settings = await getSettings();
-        if (settings.maintenanceMode && user.role !== 'admin') {
+        // 维护模式：非 admin 全部拒绝（缓存 30s 避免每次请求读库）
+        if (user.role !== 'admin' && (await isMaintenanceMode())) {
             return NextResponse.json({ code: 403, message: '站点维护中，请稍后再试' }, { status: 403 });
         }
 

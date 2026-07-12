@@ -22,6 +22,7 @@ export default function Sidebar({ currentTab, visibleTabs, sidebarOpen, setSideb
     lastFetchTime,
     refreshInterval,
     logout,
+    canModify,
   } = useAdmin();
 
   const onlineCount = adminStats?.onlineUsers?.length || 0;
@@ -92,7 +93,8 @@ export default function Sidebar({ currentTab, visibleTabs, sidebarOpen, setSideb
               <select
                 value={adminDataSource}
                 onChange={(e) => setAdminDataSource(e.target.value as "ecs" | "supabase")}
-                className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-300 flex-1"
+                disabled={!canModify("overview.switchDataSource")}
+                className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-300 flex-1 disabled:opacity-30"
               >
                 <option value="ecs">ECS</option>
                 <option value="supabase">Supabase</option>
@@ -100,7 +102,8 @@ export default function Sidebar({ currentTab, visibleTabs, sidebarOpen, setSideb
               <select
                 value={adminPageSource}
                 onChange={(e) => setAdminPageSource(e.target.value)}
-                className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-300 flex-1"
+                disabled={!canModify("overview.switchPageSource")}
+                className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-300 flex-1 disabled:opacity-30"
               >
                 <option value="weilaimeng">未来梦</option>
                 <option value="pan">主站</option>

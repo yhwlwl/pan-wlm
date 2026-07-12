@@ -21,7 +21,7 @@ interface FileRule {
 }
 
 export default function FilePermissions() {
-  const { token, fetchAllData, logAdminAction } = useAdmin();
+  const { token, fetchAllData, logAdminAction, canModify } = useAdmin();
   const [rules, setRules] = useState<FileRule[]>([]);
   const [allUsers, setAllUsers] = useState<{ username: string; role: string }[]>([]);
   const [selectedRule, setSelectedRule] = useState<FileRule | null>(null);
@@ -126,7 +126,7 @@ export default function FilePermissions() {
         <div className="lg:w-2/5 space-y-2">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-bold text-slate-700">规则列表 ({rules.length})</h3>
-            <button onClick={newRule} className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700">新建规则</button>
+            <button onClick={newRule} disabled={!canModify("fileperms.editRules")} className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed">新建规则</button>
           </div>
           {rules.map((rule) => (
             <button
@@ -273,13 +273,9 @@ export default function FilePermissions() {
 
           {/* 操作按钮 */}
           <div className="flex items-center gap-2">
-            <button onClick={handleSaveDraft} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-              保存
-            </button>
+            <button onClick={handleSaveDraft} disabled={!canModify("fileperms.editRules")} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed">保存</button>
             {selectedRule && (
-              <button onClick={() => handleDeleteRule(selectedRule.id)} className="px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100">
-                删除
-              </button>
+              <button onClick={() => handleDeleteRule(selectedRule.id)} disabled={!canModify("fileperms.deleteRule")} className="px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 disabled:opacity-30 disabled:cursor-not-allowed">删除</button>
             )}
             <button onClick={newRule} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-200">
               取消

@@ -19,7 +19,7 @@ const AUDIENCE_LABELS: Record<string, string> = {
 };
 
 export default function Announcements() {
-  const { adminSettings, adminAction, logAdminAction, fetchAllData } = useAdmin();
+  const { adminSettings, adminAction, logAdminAction, fetchAllData, canModify } = useAdmin();
   const [announcements, setAnnouncements] = useState<Ann[]>([]);
   const [draft, setDraft] = useState("");
   const [target, setTarget] = useState<"all" | "guest" | "user">("all");
@@ -193,9 +193,9 @@ export default function Announcements() {
             <label className="text-[10px] text-slate-500 block mb-1">定时发布（可选）</label>
             <input type="datetime-local" value={schedule} onChange={e => setSchedule(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
           </div>
-          <button onClick={handlePublishNow} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700">立即发布</button>
+          <button onClick={handlePublishNow} disabled={!canModify("announcements.publish")} title={!canModify("announcements.publish") ? "无修改权限" : undefined} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed">立即发布</button>
           {schedule && (
-            <button onClick={handleSchedule} className="bg-amber-50 text-amber-700 border border-amber-200 rounded-lg px-4 py-2 text-sm font-medium hover:bg-amber-100">定时发布</button>
+            <button onClick={handleSchedule} disabled={!canModify("announcements.publish")} title={!canModify("announcements.publish") ? "无修改权限" : undefined} className="bg-amber-50 text-amber-700 border border-amber-200 rounded-lg px-4 py-2 text-sm font-medium hover:bg-amber-100 disabled:opacity-30 disabled:cursor-not-allowed">定时发布</button>
           )}
         </div>
       </div>
@@ -226,14 +226,12 @@ export default function Announcements() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => toggleActive(a.id)}
-                    className={`text-[10px] px-2 py-1 rounded font-medium ${a.active ? "bg-slate-50 text-slate-500 hover:bg-slate-100" : "bg-green-50 text-green-600 hover:bg-green-100"}`}>
+                  <button onClick={() => toggleActive(a.id)} disabled={!canModify("announcements.toggle")} title={!canModify("announcements.toggle") ? "无修改权限" : undefined}
+                    className={`text-[10px] px-2 py-1 rounded font-medium disabled:opacity-30 disabled:cursor-not-allowed ${a.active ? "bg-slate-50 text-slate-500 hover:bg-slate-100" : "bg-green-50 text-green-600 hover:bg-green-100"}`}>
                     {a.active ? "停用" : "启用"}
                   </button>
-                  <button onClick={() => handleDelete(a.id)}
-                    className="text-[10px] px-2 py-1 rounded text-red-500 hover:bg-red-50 font-medium">
-                    删除
-                  </button>
+                  <button onClick={() => handleDelete(a.id)} disabled={!canModify("announcements.delete")} title={!canModify("announcements.delete") ? "无修改权限" : undefined}
+                    className="text-[10px] px-2 py-1 rounded text-red-500 hover:bg-red-50 font-medium disabled:opacity-30 disabled:cursor-not-allowed">删除</button>
                 </div>
               </div>
             ))}

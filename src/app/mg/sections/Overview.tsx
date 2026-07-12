@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAdmin } from "../lib/admin-context";
 
 export default function Overview() {
-  const { adminStats, denyDashboard, isAdmin, adminDataSource, adminPageSource, setAdminDataSource, setAdminPageSource, lastFetchTime, loading } = useAdmin();
+  const { adminStats, denyDashboard, isAdmin, adminDataSource, adminPageSource, setAdminDataSource, setAdminPageSource, lastFetchTime, canModify, loading } = useAdmin();
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
 
   if (loading || !adminStats) {

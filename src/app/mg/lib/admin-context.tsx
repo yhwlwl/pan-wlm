@@ -37,6 +37,8 @@ export interface AdminContextValue {
   setAdminMsg: (v: string | null) => void;
   logout: () => void;
   logAdminAction: (actionType: string, actionItem: string) => void;
+  canView: (sectionKey: string) => boolean;
+  canModify: (operationKey: string) => boolean;
 
   // Deny 相关
   denyDetailEntity: { entity_type: string; entity_value: string } | null;
@@ -61,6 +63,27 @@ const denyReasonLabel: Record<string, string> = {
   frontend: "前端拦截",
   admin_add_score: "管理员手动加分",
   admin_sub_score: "管理员手动减分",
+};
+
+// 默认风险标签（mgRiskLabels 未配时使用）
+const DEFAULT_RISK_LABELS: Record<string, number> = {
+  "overview.viewStats":1,"overview.viewOnlineUsers":1,"overview.viewRecentActions":1,
+  "overview.viewRecentDeny":2,"overview.switchDataSource":2,"overview.switchPageSource":2,
+  "downloads.viewChannels":1,"downloads.expandChannel":1,"downloads.viewHistory":2,
+  "visits.viewIPs":1,"visits.switchSort":1,"visits.viewFlow":1,
+  "visits.banShort":2,"visits.unban":2,"visits.banCustom":3,
+  "actionlogs.viewTable":1,"actionlogs.filter":1,"actionlogs.exportCSV":1,
+  "announcements.viewStatus":1,"announcements.viewHistory":1,"announcements.publish":2,
+  "announcements.toggle":2,"announcements.delete":3,
+  "fileperms.viewRules":2,"fileperms.previewRegex":2,"fileperms.editRules":3,"fileperms.deleteRule":3,
+  "users.viewList":2,"users.viewPerms":2,"users.viewAssociations":2,"users.editBasePath":2,
+  "users.addUser":3,"users.changeRole":4,"users.changePerms":4,"users.deleteUser":4,
+  "riskcontrol.viewSummary":3,"riskcontrol.viewEntities":3,"riskcontrol.viewDetail":3,
+  "riskcontrol.viewDenyEvents":3,"riskcontrol.adjustScore":4,"riskcontrol.unban":4,"riskcontrol.clearScore":4,
+  "settings.view":2,"settings.appearance":2,"settings.dataRetention":2,
+  "settings.global":3,"settings.fileLimits":3,"settings.loginLimits":3,
+  "settings.denyConfig":4,"settings.changePassword":6,"settings.riskLabels":6,
+  "emergency.view":3,"emergency.maintenance":5,"emergency.restore":5,"emergency.banAllIPs":5,
 };
 
 const AdminContext = createContext<AdminContextValue | null>(null);
@@ -225,6 +248,38 @@ export function AdminProvider({
     [token, logAdminAction]
   );
 
+  // ─── 权限检查 ───
+  const mgPerms = permissions?.mgPermissions || {};
+  const riskLabels = adminSettings?.mgRiskLabels || DEFAULT_RISK_LABELS;
+
+  const sectionMap: Record<string, string> = {
+    overview: "mgOverview", downloads: "mgDownloads", visits: "mgVisits",
+    actionlogs: "mgActionLogs", announcements: "mgAnnouncements",
+    fileperms: "mgFilePerms", users: "mgUsers", riskcontrol: "mgRiskControl",
+    settings: "mgSettings", emergency: "mgEmergency",
+  };
+
+  const canView = useCallback(
+    (sectionKey: string) => {
+      if (isAdmin) return true;
+      return (mgPerms[sectionKey]?.view ?? 0) > 0;
+    },
+    [isAdmin, mgPerms]
+  );
+
+  const canModify = useCallback(
+    (operationKey: string) => {
+      if (isAdmin) return true;
+      const requiredRisk = riskLabels[operationKey] ?? 0;
+      if (requiredRisk >= 6) return false; // 超管操作
+      const section = operationKey.split(".")[0];
+      const mgKey = sectionMap[section];
+      if (!mgKey) return false;
+      return (mgPerms[mgKey]?.modify ?? 0) >= requiredRisk;
+    },
+    [isAdmin, mgPerms, riskLabels]
+  );
+
   // ─── 自动清除消息 ───
 
   useEffect(() => {
@@ -270,6 +325,8 @@ export function AdminProvider({
     denyReasonLabel,
     logout: () => window.location.reload(),
     logAdminAction,
+    canView,
+    canModify,
   };
 
   return React.createElement(AdminContext.Provider, { value }, children);

@@ -8,6 +8,11 @@ export interface User {
     role: Role;
 }
 
+export interface MgSectionPermission {
+    view: number;   // 0=隐藏 1-6=可见最高风险等级
+    modify: number; // 0=只读 1-6=可修改最高风险等级
+}
+
 export interface UserPermissions {
     view: boolean;
     search: boolean;
@@ -23,6 +28,8 @@ export interface UserPermissions {
     viewActionLogs?: boolean;
     viewIpStats?: boolean;
     viewDownloadLogs?: boolean;
+    // 管理后台板块权限（v2 风险分级）
+    mgPermissions?: Record<string, MgSectionPermission>;
 }
 
 export type FilePermissionAction = 'view' | 'search' | 'download' | 'upload' | 'delete' | 'rename' | 'preview';
@@ -101,6 +108,8 @@ export interface GlobalSettings {
     maintenanceMode?: boolean;
     tokenInvalidBefore?: number;
     maintenanceSnapshot?: any;
+    // 风险标签配置
+    mgRiskLabels?: Record<string, number>;
 }
 
 export type UserWithPermissions = Omit<User, 'password'> & { permissions: UserPermissions };
@@ -229,6 +238,7 @@ export async function getSettings(): Promise<GlobalSettings> {
         maintenanceMode: typeof val.maintenanceMode === 'boolean' ? val.maintenanceMode : false,
         tokenInvalidBefore: typeof val.tokenInvalidBefore === 'number' ? val.tokenInvalidBefore : 0,
         maintenanceSnapshot: (val.maintenanceSnapshot || undefined) as any,
+        mgRiskLabels: (val.mgRiskLabels || undefined) as Record<string, number> | undefined,
     };
 }
 

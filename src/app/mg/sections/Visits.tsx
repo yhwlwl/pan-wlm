@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAdmin } from "../lib/admin-context";
 
 export default function Visits() {
-  const { adminStats, adminSettings, isAdmin, adminAction, fetchAllData, loading } = useAdmin();
+  const { adminStats, adminSettings, isAdmin, adminAction, fetchAllData, canModify, loading } = useAdmin();
   const [ipSort, setIpSort] = useState<"count" | "time" | "flow">("count");
   const [ipLimit, setIpLimit] = useState(5);
   const [banInput, setBanInput] = useState<{ ip: string; show: boolean }>({ ip: "", show: false });
@@ -137,21 +137,14 @@ export default function Visits() {
                           <div className="flex items-center justify-end gap-1">
                             {ban.banned ? (
                               <button
-                                onClick={() => handleUnban(ipData.ip)}
-                                className="text-[10px] px-2 py-1 rounded bg-green-50 text-green-600 hover:bg-green-100 font-medium"
-                              >
-                                解封
-                              </button>
+                                onClick={() => handleUnban(ipData.ip)} disabled={!canModify("visits.unban")} title={!canModify("visits.unban") ? "无修改权限" : undefined}
+                                className="text-[10px] px-2 py-1 rounded bg-green-50 text-green-600 hover:bg-green-100 font-medium disabled:opacity-30 disabled:cursor-not-allowed"
+                              >解封</button>
                             ) : (
                               <>
-                                <button onClick={() => handleBan(ipData.ip, 1)} className="text-[10px] px-1.5 py-1 rounded bg-slate-50 text-slate-600 hover:bg-slate-100">1h</button>
-                                <button onClick={() => handleBan(ipData.ip, 24)} className="text-[10px] px-1.5 py-1 rounded bg-amber-50 text-amber-600 hover:bg-amber-100">24h</button>
-                                <button
-                                  onClick={() => setBanInput({ ip: ipData.ip, show: true })}
-                                  className="text-[10px] px-1.5 py-1 rounded bg-slate-50 text-slate-600 hover:bg-slate-100"
-                                >
-                                  自定义
-                                </button>
+                                <button onClick={() => handleBan(ipData.ip, 1)} disabled={!canModify("visits.banShort")} title={!canModify("visits.banShort") ? "无修改权限" : undefined} className="text-[10px] px-1.5 py-1 rounded bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed">1h</button>
+                                <button onClick={() => handleBan(ipData.ip, 24)} disabled={!canModify("visits.banShort")} title={!canModify("visits.banShort") ? "无修改权限" : undefined} className="text-[10px] px-1.5 py-1 rounded bg-amber-50 text-amber-600 hover:bg-amber-100 disabled:opacity-30 disabled:cursor-not-allowed">24h</button>
+                                <button onClick={() => setBanInput({ ip: ipData.ip, show: true })} disabled={!canModify("visits.banCustom")} title={!canModify("visits.banCustom") ? "无修改权限" : undefined} className="text-[10px] px-1.5 py-1 rounded bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed">自定义</button>
                               </>
                             )}
                           </div>

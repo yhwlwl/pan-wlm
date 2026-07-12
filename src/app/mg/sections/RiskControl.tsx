@@ -6,7 +6,7 @@ import { useAdmin } from "../lib/admin-context";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://pan.tantantan.tech/wlm-api";
 
 export default function RiskControl() {
-  const { denyDashboard, denyDetailEntity, setDenyDetailEntity, denyReasonLabel, fetchAllData, token, logAdminAction, loading } = useAdmin();
+  const { denyDashboard, denyDetailEntity, setDenyDetailEntity, denyReasonLabel, fetchAllData, token, logAdminAction, canModify, loading } = useAdmin();
   const [showDenyEvents, setShowDenyEvents] = useState(false);
 
   if (loading || !denyDashboard) {
@@ -104,12 +104,12 @@ export default function RiskControl() {
                   </td>
                   <td className="px-4 py-2 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => postDenyAction({ action: "adjust_score", entity_type: e.entity_type, entity_value: e.entity_value, delta: 5 })} className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 hover:bg-red-100">+5</button>
-                      <button onClick={() => postDenyAction({ action: "adjust_score", entity_type: e.entity_type, entity_value: e.entity_value, delta: -5 })} className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-600 hover:bg-green-100">-5</button>
+                      <button onClick={() => postDenyAction({ action: "adjust_score", entity_type: e.entity_type, entity_value: e.entity_value, delta: 5 })} disabled={!canModify("riskcontrol.adjustScore")} title={!canModify("riskcontrol.adjustScore") ? "无修改权限" : undefined} className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-30 disabled:cursor-not-allowed">+5</button>
+                      <button onClick={() => postDenyAction({ action: "adjust_score", entity_type: e.entity_type, entity_value: e.entity_value, delta: -5 })} disabled={!canModify("riskcontrol.adjustScore")} title={!canModify("riskcontrol.adjustScore") ? "无修改权限" : undefined} className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-600 hover:bg-green-100 disabled:opacity-30 disabled:cursor-not-allowed">-5</button>
                       {e.is_banned && (
-                        <button onClick={() => postDenyAction({ action: "unban", entity_type: e.entity_type, entity_value: e.entity_value })} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100">解封</button>
+                        <button onClick={() => postDenyAction({ action: "unban", entity_type: e.entity_type, entity_value: e.entity_value })} disabled={!canModify("riskcontrol.unban")} title={!canModify("riskcontrol.unban") ? "无修改权限" : undefined} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 disabled:opacity-30 disabled:cursor-not-allowed">解封</button>
                       )}
-                      <button onClick={() => postDenyAction({ action: "clear_score", entity_type: e.entity_type, entity_value: e.entity_value })} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-50 text-slate-500 hover:bg-slate-100">清分</button>
+                      <button onClick={() => postDenyAction({ action: "clear_score", entity_type: e.entity_type, entity_value: e.entity_value })} disabled={!canModify("riskcontrol.clearScore")} title={!canModify("riskcontrol.clearScore") ? "无修改权限" : undefined} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-50 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed">清分</button>
                     </div>
                   </td>
                 </tr>

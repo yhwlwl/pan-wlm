@@ -28,7 +28,7 @@ const DEFAULT_SCORES: Record<string, number> = {
 };
 
 export default function Settings() {
-  const { adminSettings, adminAction, fetchAllData, token } = useAdmin();
+  const { adminSettings, adminAction, fetchAllData, canModify, token } = useAdmin();
   const [msg, setMsg] = useState<string | null>(null);
   const [s, setS] = useState<any>({});
   // 安全设置
@@ -79,7 +79,7 @@ export default function Settings() {
         <div className="flex flex-wrap items-end gap-3">
           <Field label="当前密码"><input type="password" value={adminPw} onChange={e => setAdminPw(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-36" /></Field>
           <Field label="新密码"><input type="password" value={newAdminPw} onChange={e => setNewAdminPw(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-36" /></Field>
-          <button onClick={chPw} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700">修改密码</button>
+          <button onClick={chPw} disabled={!canModify("settings.changePassword")} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-30">修改密码</button>
         </div>
       </Card>
 
@@ -91,7 +91,7 @@ export default function Settings() {
           <NumField label="会话时长 (小时)" value={s.sessionDurationHours ?? 8} min={1} max={720} onChange={v => setS({ ...s, sessionDurationHours: v })} />
           <NumField label="后台刷新间隔 (秒)" value={s.refreshInterval ?? 60} min={10} max={3600} onChange={v => setS({ ...s, refreshInterval: v })} />
         </div>
-        <button onClick={save} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 mt-4">保存设置</button>
+        <button onClick={save} disabled={!canModify("settings.global")} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-30 mt-4">保存设置</button>
       </Card>
 
       {/* ===== 卡片 3: 站点外观 ===== */}
@@ -108,7 +108,7 @@ export default function Settings() {
           </Field>
           <NumField label="文本预览上限 (MB)" value={s.textPreviewMaxMB ?? 2} min={1} max={50} onChange={v => setS({ ...s, textPreviewMaxMB: v })} />
         </div>
-        <button onClick={save} className="btn-primary mt-4">保存设置</button>
+        <button onClick={save} disabled={!canModify("settings.appearance")} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-30 mt-4">保存设置</button>
       </Card>
 
       {/* ===== 卡片 4: 风控阈值 ===== */}
@@ -122,7 +122,7 @@ export default function Settings() {
           <NumField label="IP 解封后重置分" value={dt.ipPostBanScore ?? 60} min={0} max={200} onChange={v => setDt({ ...dt, ipPostBanScore: v })} />
           <NumField label="设备解封后重置分" value={dt.devicePostBanScore ?? 40} min={0} max={200} onChange={v => setDt({ ...dt, devicePostBanScore: v })} />
         </div>
-        <button onClick={saveDt} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700">保存风控阈值</button>
+        <button onClick={saveDt} disabled={!canModify("settings.denyConfig")} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-30">保存风控阈值</button>
       </Card>
 
       {/* ===== 卡片 5: 风控评分规则 ===== */}
@@ -142,7 +142,7 @@ export default function Settings() {
           <NumField label="衰减窗口 (小时)" value={dt.decayWindowHours ?? 24} min={1} max={720} onChange={v => setDt({ ...dt, decayWindowHours: v })} />
           <NumField label="去重窗口 (分钟)" value={dt.dedupWindowMinutes ?? 5} min={1} max={60} onChange={v => setDt({ ...dt, dedupWindowMinutes: v })} />
         </div>
-        <button onClick={saveDt} className="btn-primary mt-4">保存评分规则</button>
+        <button onClick={saveDt} disabled={!canModify("settings.denyConfig")} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-30 mt-4">保存评分规则</button>
       </Card>
 
       {/* ===== 卡片 6: 阶梯封禁规则 ===== */}
@@ -154,7 +154,7 @@ export default function Settings() {
           <NumField label="三次及以上 (小时)" value={dt.thirdBanHours ?? 24} min={1} max={720} onChange={v => setDt({ ...dt, thirdBanHours: v })} />
           <NumField label="升级事件数阈值" value={dt.banEscalationThreshold ?? 15} min={1} max={1000} onChange={v => setDt({ ...dt, banEscalationThreshold: v })} />
         </div>
-        <button onClick={saveDt} className="btn-primary mt-4">保存封禁规则</button>
+        <button onClick={saveDt} disabled={!canModify("settings.denyConfig")} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-30 mt-4">保存封禁规则</button>
       </Card>
 
       {/* ===== 卡片 7: 登录与频率限制 ===== */}
@@ -165,7 +165,7 @@ export default function Settings() {
           <NumField label="失败计数窗口 (分钟)" value={s.failedLoginWindowMinutes ?? 15} min={1} max={1440} onChange={v => setS({ ...s, failedLoginWindowMinutes: v })} />
           <NumField label="同IP最大并发会话" value={s.maxConcurrentSessions ?? 0} min={0} max={100} onChange={v => setS({ ...s, maxConcurrentSessions: v })} />
         </div>
-        <button onClick={save} className="btn-primary mt-4">保存限制</button>
+        <button onClick={save} disabled={!canModify("settings.loginLimits")} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-30 mt-4">保存限制</button>
       </Card>
 
       {/* ===== 卡片 8: 文件操作限制 ===== */}
@@ -175,7 +175,7 @@ export default function Settings() {
           <NumField label="单次批量下载上限 (个)" value={s.maxBatchDownload ?? 0} min={0} max={500} onChange={v => setS({ ...s, maxBatchDownload: v })} />
           <NumField label="上传文件大小上限 (MB)" value={s.maxUploadSizeMB ?? 0} min={0} max={10000} onChange={v => setS({ ...s, maxUploadSizeMB: v })} />
         </div>
-        <button onClick={save} className="btn-primary mt-4">保存限制</button>
+        <button onClick={save} disabled={!canModify("settings.fileLimits")} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-30 mt-4">保存限制</button>
       </Card>
 
       {/* ===== 卡片 9: 数据保留 ===== */}
@@ -186,7 +186,7 @@ export default function Settings() {
           <NumField label="Deny 事件保留 (天)" value={s.denyEventRetentionDays ?? 0} min={0} max={3650} onChange={v => setS({ ...s, denyEventRetentionDays: v })} />
           <NumField label="访问日志保留 (天)" value={s.visitLogRetentionDays ?? 0} min={0} max={3650} onChange={v => setS({ ...s, visitLogRetentionDays: v })} />
         </div>
-        <button onClick={save} className="btn-primary mt-4">保存保留策略</button>
+        <button onClick={save} disabled={!canModify("settings.dataRetention")} className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-30 mt-4">保存保留策略</button>
       </Card>
 
       {/* ===== 卡片 10: 系统 ===== */}
