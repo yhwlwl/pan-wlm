@@ -133,19 +133,7 @@ export function AdminProvider({
   const fetchAllData = useCallback(async () => {
     if (!token) return;
     try {
-      // 非 admin：只拉统计数据
-      if (role !== "admin") {
-        const statsRes = await fetch(
-          `${API_BASE}/api/admin-stats?source=${adminDataSource}&page_source=${adminPageSource}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const sData = await statsRes.json();
-        if (sData.code === 200 && sData.data) setAdminStats(sData.data);
-        setLastFetchTime(Date.now());
-        return;
-      }
-
-      // admin：并行拉全部
+      // 统一拉全部（API 各路由有独立权限校验）
       const [usrRes, statsRes, denyRes] = await Promise.all([
         fetch(`${API_BASE}/api/users`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_BASE}/api/admin-stats?source=${adminDataSource}&page_source=${adminPageSource}`, {
