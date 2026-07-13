@@ -28,6 +28,7 @@ export interface UserPermissions {
   viewActionLogs?: boolean;
   viewIpStats?: boolean;
   viewDownloadLogs?: boolean;
+  mgAccess?: boolean;
 }
 
 type FilePermissionAction = 'view' | 'search' | 'download' | 'upload' | 'delete' | 'rename' | 'preview';
