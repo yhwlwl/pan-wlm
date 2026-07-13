@@ -1,14 +1,20 @@
 [
   {
+    "version": "1.2.0",
+    "date": "2026-07-13",
+    "message": "修复安全漏洞，优化链路",
+    "hash": "mg-dashboard"
+  },
+  {
     "version": "1.1.0",
     "date": "2026-07-10",
-    "message": "pdf预览交互优化",
+    "message": "PDF预览交互优化",
     "hash": "pdf-fullscreen"
   },
   {
     "version": "1.0.0",
     "date": "2026-07-10",
-    "message": "WLM-PAN 未来梦阅读站上线。",
+    "message": "WLM-PAN 未来梦阅读站上线",
     "hash": "wlm-init"
   }
 ]

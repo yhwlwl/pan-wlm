@@ -4216,7 +4216,8 @@ export default function Home() {
           </button>
         </div>
         <div>© {new Date().getFullYear()} 成都七中科学技术协会 (STA)</div>
-        <div className="mt-1 opacity-80">未来梦杂志 · 25级网络部搭建运营</div>
+        <div>本网站由25级网络部搭建运营</div>
+        <div className="mt-1">如遇错误，请刷新重试。若仍存在，请联系：QQ 3904547925</div>
       </footer>
 
       {/* 右键菜单 */}
