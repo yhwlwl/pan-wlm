@@ -12,7 +12,9 @@ export default function Emergency() {
 
   const showMsg = (text: string) => { setMsg(text); setTimeout(() => setMsg(null), 5000); };
 
-  const isMaintenance = !!adminSettings?.maintenanceMode || !!adminSettings?.maintenanceSnapshot;
+  // 本地维护状态标记，手动设 false 后无需等后台刷新
+  const [localMaintenance, setLocalMaintenance] = useState(true);
+  const isMaintenance = adminSettings?.maintenanceSnapshot ? true : (localMaintenance && (adminSettings?.maintenanceMode === true));
   const onlineCount = adminStats?.onlineUsers?.length || 0;
   const deny24h = denyDashboard?.summary?.total24h || 0;
   const riskEntities = (denyDashboard?.summary?.warnCount || 0) + (denyDashboard?.summary?.bannedCount || 0);
@@ -84,6 +86,7 @@ export default function Emergency() {
       },
     });
 
+    setLocalMaintenance(false);
     logAdminAction("应急", "恢复站点运行");
     showMsg("站点已恢复正常");
     setLoading(null);
