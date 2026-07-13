@@ -6,6 +6,7 @@ import { useAdmin } from "../lib/admin-context";
 const DEFAULT_RISK_LABELS: Record<string, number> = {
   "overview.viewStats":1,"overview.viewOnlineUsers":1,"overview.viewRecentActions":1,
   "overview.viewRecentDeny":2,"overview.switchDataSource":2,"overview.switchPageSource":2,
+  "overview.viewPreviews":1,
   "downloads.viewChannels":1,"downloads.expandChannel":1,"downloads.viewHistory":2,
   "visits.viewIPs":1,"visits.switchSort":1,"visits.viewFlow":1,
   "visits.banShort":2,"visits.unban":2,"visits.banCustom":3,
@@ -34,6 +35,7 @@ const SECTION_LABELS: Record<string, string> = {
 const OP_LABELS: Record<string, string> = {
   "overview.viewStats":"查看指标卡","overview.viewOnlineUsers":"查看在线用户弹窗",
   "overview.viewRecentActions":"查看最近操作","overview.viewRecentDeny":"查看最近拦截",
+  "overview.viewPreviews":"查看预览统计",
   "overview.switchDataSource":"切换数据源","overview.switchPageSource":"切换站来源",
   "downloads.viewChannels":"查看通道卡片","downloads.expandChannel":"展开通道详情",
   "downloads.viewHistory":"查看全部历史下载",

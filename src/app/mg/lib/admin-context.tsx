@@ -69,6 +69,7 @@ const denyReasonLabel: Record<string, string> = {
 const DEFAULT_RISK_LABELS: Record<string, number> = {
   "overview.viewStats":1,"overview.viewOnlineUsers":1,"overview.viewRecentActions":1,
   "overview.viewRecentDeny":2,"overview.switchDataSource":2,"overview.switchPageSource":2,
+  "overview.viewPreviews":1,
   "downloads.viewChannels":1,"downloads.expandChannel":1,"downloads.viewHistory":2,
   "visits.viewIPs":1,"visits.switchSort":1,"visits.viewFlow":1,
   "visits.banShort":2,"visits.unban":2,"visits.banCustom":3,

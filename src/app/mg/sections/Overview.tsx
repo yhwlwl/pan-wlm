@@ -6,6 +6,7 @@ import { useAdmin } from "../lib/admin-context";
 export default function Overview() {
   const { adminStats, denyDashboard, isAdmin, adminDataSource, adminPageSource, setAdminDataSource, setAdminPageSource, lastFetchTime, canModify, loading } = useAdmin();
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
+  const [showLogModal, setShowLogModal] = useState<{ title: string; logs: any[] } | null>(null);
 
   if (loading || !adminStats) {
     return <div className="text-slate-500 text-sm py-12 text-center">⏳ 加载数据中...</div>;
@@ -50,11 +51,14 @@ export default function Overview() {
         </button>
 
         {/* 今日下载 */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <button onClick={() => {
+          const dlLogs = (stats.recentActions || []).filter((l: any) => (l.action || "").startsWith("下载"));
+          setShowLogModal({ title: "今日下载记录", logs: dlLogs.filter((l: any) => new Date(l.time).getTime() >= Date.now() - 86400000) });
+        }} className="bg-white rounded-xl border border-slate-200 p-5 text-left hover:shadow-md transition-shadow">
           <div className="text-xs font-medium text-slate-500 mb-2">今日下载</div>
           <div className="text-3xl font-bold text-blue-600">{stats.past24hDownloads || 0}</div>
           <div className="text-xs text-slate-400 mt-1">过去 24 小时</div>
-        </div>
+        </button>
 
         {/* 总访问量 */}
         <div className="bg-white rounded-xl border border-slate-200 p-5">
@@ -81,16 +85,22 @@ export default function Overview() {
 
       {/* ─── 预览统计 ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <button onClick={() => {
+          const pvLogs = (stats.recentActions || []).filter((l: any) => l.action === "预览");
+          setShowLogModal({ title: "今日预览记录", logs: pvLogs.filter((l: any) => new Date(l.time).getTime() >= Date.now() - 86400000) });
+        }} className="bg-white rounded-xl border border-slate-200 p-5 text-left hover:shadow-md transition-shadow">
           <div className="text-xs font-medium text-slate-500 mb-2">今日预览</div>
           <div className="text-3xl font-bold text-purple-600">{adminStats?.past24hPreviews || 0}</div>
           <div className="text-xs text-slate-400 mt-1">过去 24 小时</div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        </button>
+        <button onClick={() => {
+          const pvLogs = (stats.recentActions || []).filter((l: any) => l.action === "预览");
+          setShowLogModal({ title: "累计预览记录", logs: pvLogs });
+        }} className="bg-white rounded-xl border border-slate-200 p-5 text-left hover:shadow-md transition-shadow">
           <div className="text-xs font-medium text-slate-500 mb-2">累计预览</div>
           <div className="text-3xl font-bold text-slate-800">{adminStats?.totalPreviews || 0}</div>
           <div className="text-xs text-slate-400 mt-1">历史累计</div>
-        </div>
+        </button>
       </div>
 
       {/* ─── 实时动态（双区） ─── */}
@@ -149,6 +159,32 @@ export default function Overview() {
       </div>
 
       {/* ─── 底部状态栏 ─── */}
+      {/* 操作/预览详情弹窗 */}
+      {showLogModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40" onClick={() => setShowLogModal(null)}>
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-3xl max-h-[70vh] overflow-auto mx-4" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800">{showLogModal.title} ({showLogModal.logs.length})</h3>
+              <button onClick={() => setShowLogModal(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            <div className="divide-y divide-slate-50">
+              {showLogModal.logs.length === 0 ? (
+                <div className="px-5 py-8 text-center text-xs text-slate-400">暂无记录</div>
+              ) : (
+                showLogModal.logs.slice(0, 100).map((log: any, i: number) => (
+                  <div key={i} className="px-5 py-2.5 flex items-center gap-3 text-xs">
+                    <span className="text-slate-400 font-mono shrink-0 w-14">{new Date(log.time).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                    <span className="text-slate-700 shrink-0">{log.username}</span>
+                    <span className="text-slate-500 truncate" title={log.item}>{log.item}</span>
+                    <span className="text-slate-400 font-mono text-[10px] shrink-0" title={log.ip}>{(log.ip || "").slice(0, 15)}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-slate-200 px-5 py-3 flex flex-wrap items-center gap-4 text-xs text-slate-500">
         {isAdmin && (
           <>

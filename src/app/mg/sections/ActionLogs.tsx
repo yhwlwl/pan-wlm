@@ -46,6 +46,7 @@ export default function ActionLogs() {
     if (logFilter === "被拦截") result = result.filter((l: any) => (l.action || "").includes("被拦截") || (l.action || "").includes("blocked"));
     else if (logFilter === "失败") result = result.filter((l: any) => (l.action || "").includes("失败"));
     else if (logFilter === "下载") result = result.filter((l: any) => (l.action || "").startsWith("下载"));
+    else if (logFilter === "预览") result = result.filter((l: any) => l.action === "预览");
     else if (logFilter === "删除") result = result.filter((l: any) => (l.action || "").startsWith("删除"));
     else if (logFilter === "文件权限") result = result.filter((l: any) => (l.action || "").includes("文件权限"));
     else if (logFilter === "登录") result = result.filter((l: any) => (l.action || "").includes("登录"));
@@ -104,6 +105,7 @@ export default function ActionLogs() {
           <option value="被拦截">被拦截</option>
           <option value="失败">失败</option>
           <option value="下载">下载</option>
+          <option value="预览">预览</option>
           <option value="删除">删除</option>
           <option value="文件权限">文件权限</option>
           <option value="登录">登录</option>
