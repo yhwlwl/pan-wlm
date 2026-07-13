@@ -79,6 +79,20 @@ export default function Overview() {
         </div>
       </div>
 
+      {/* ─── 预览统计 ─── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="text-xs font-medium text-slate-500 mb-2">今日预览</div>
+          <div className="text-3xl font-bold text-purple-600">{adminStats?.past24hPreviews || 0}</div>
+          <div className="text-xs text-slate-400 mt-1">过去 24 小时</div>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="text-xs font-medium text-slate-500 mb-2">累计预览</div>
+          <div className="text-3xl font-bold text-slate-800">{adminStats?.totalPreviews || 0}</div>
+          <div className="text-xs text-slate-400 mt-1">历史累计</div>
+        </div>
+      </div>
+
       {/* ─── 实时动态（双区） ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 最近操作 */}
