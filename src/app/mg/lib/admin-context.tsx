@@ -249,7 +249,7 @@ export function AdminProvider({
   );
 
   // ─── 权限检查 ───
-  const mgPerms = permissions?.mgPermissions || {};
+  const mgPerms: Record<string, { view: number; modify: number }> = (permissions as any)?.mgPermissions || {};
   const riskLabels = adminSettings?.mgRiskLabels || DEFAULT_RISK_LABELS;
 
   const sectionMap: Record<string, string> = {
