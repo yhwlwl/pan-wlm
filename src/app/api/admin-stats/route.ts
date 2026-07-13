@@ -36,7 +36,9 @@ export async function GET(request: Request) {
         if (!user) return NextResponse.json({ code: 401, message: '请先登录' }, { status: 401 });
         if (user.role !== 'admin') {
             const perms = await getUserPermissions(user.username, user.role);
-            if (!(perms.viewStats || perms.viewActionLogs || perms.viewIpStats || perms.viewDownloadLogs)) {
+            // 管理员面板权限或旧权限都可访问
+            const hasMgAccess = perms.mgAccess === true || Object.keys(perms.mgPermissions || {}).length > 0;
+            if (!(hasMgAccess || perms.viewStats || perms.viewActionLogs || perms.viewIpStats || perms.viewDownloadLogs)) {
                 return denyAndLog(request, 'api_role_denied', 401, '无权限访问统计信息', user.username);
             }
         }
