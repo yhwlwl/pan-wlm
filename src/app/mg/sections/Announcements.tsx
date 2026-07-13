@@ -8,11 +8,16 @@ interface Ann {
   content: string;
   active: boolean;
   targetAudience: "all" | "guest" | "user";
+  displayLocation: "login" | "main" | "all";
   scheduledAt: string | null;
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+const LOCATION_LABELS: Record<string, string> = {
+  login: "仅登录页", main: "仅主页", all: "登录页+主页",
+};
 
 const AUDIENCE_LABELS: Record<string, string> = {
   all: "所有人", guest: "仅访客", user: "仅登录用户",
@@ -23,6 +28,7 @@ export default function Announcements() {
   const [announcements, setAnnouncements] = useState<Ann[]>([]);
   const [draft, setDraft] = useState("");
   const [target, setTarget] = useState<"all" | "guest" | "user">("all");
+  const [location, setLocation] = useState<"login" | "main" | "all">("all");
   const [schedule, setSchedule] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
@@ -52,6 +58,7 @@ export default function Announcements() {
       content: draft.trim(),
       active: true,
       targetAudience: target,
+      displayLocation: location,
       scheduledAt: null,
       publishedAt: now,
       createdAt: now,
@@ -74,6 +81,7 @@ export default function Announcements() {
       content: draft.trim(),
       active: false,
       targetAudience: target,
+      displayLocation: location,
       scheduledAt: new Date(schedule).toISOString(),
       publishedAt: null,
       createdAt: now,
@@ -142,6 +150,8 @@ export default function Announcements() {
               <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400">
                 <span>{AUDIENCE_LABELS[activeAnnouncement.targetAudience]}</span>
                 <span>·</span>
+                <span>{LOCATION_LABELS[activeAnnouncement.displayLocation || "all"]}</span>
+                <span>·</span>
                 <span>发布于 {new Date(activeAnnouncement.publishedAt || activeAnnouncement.createdAt).toLocaleString("zh-CN")}</span>
               </div>
             </div>
@@ -190,6 +200,14 @@ export default function Announcements() {
             </select>
           </div>
           <div>
+            <label className="text-[10px] text-slate-500 block mb-1">显示位置</label>
+            <select value={location} onChange={e => setLocation(e.target.value as any)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              <option value="all">登录页+主页</option>
+              <option value="login">仅登录页</option>
+              <option value="main">仅主页</option>
+            </select>
+          </div>
+          <div>
             <label className="text-[10px] text-slate-500 block mb-1">定时发布（可选）</label>
             <input type="datetime-local" value={schedule} onChange={e => setSchedule(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
           </div>
@@ -215,6 +233,7 @@ export default function Announcements() {
                   <div className="text-sm text-slate-700 line-clamp-2">{a.content}</div>
                   <div className="flex flex-wrap items-center gap-2 mt-1 text-[10px] text-slate-400">
                     <span>{AUDIENCE_LABELS[a.targetAudience]}</span>
+                    <span>{LOCATION_LABELS[a.displayLocation || "all"]}</span>
                     {a.scheduledAt && new Date(a.scheduledAt) > new Date() ? (
                       <span className="text-amber-600 font-medium">定时: {new Date(a.scheduledAt).toLocaleString("zh-CN")}</span>
                     ) : a.publishedAt ? (

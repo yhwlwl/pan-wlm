@@ -176,7 +176,7 @@ export default function Home() {
   const [globalDownloadModes, setGlobalDownloadModes] = useState<GlobalSettings['downloadModes']>({
     ecs: 'enabled', cf: 'enabled', raw: 'enabled', vercel: 'disabled', direct302: 'enabled'
   });
-  const [globalAnnouncement, setGlobalAnnouncement] = useState('');
+  const [announcements, setAnnouncements] = useState<any[]>();
   const [downloadChannel, setDownloadChannel] = useState<'ecs' | 'frp'>('ecs');
   const [newUserName, setNewUserName] = useState('');
   const [newUserPass, setNewUserPass] = useState('');
@@ -611,7 +611,8 @@ export default function Home() {
       .then(data => {
         if (data) {
           if (data.downloadModes) setGlobalDownloadModes(data.downloadModes);
-          if (data.announcement) setGlobalAnnouncement(data.announcement);
+          if (data.announcements) setAnnouncements(data.announcements);
+          else if (data.announcement) setAnnouncements([{ content: data.announcement, active: true, targetAudience: "all", displayLocation: "all", id: "legacy", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]);
           if (data.downloadChannel === 'ecs' || data.downloadChannel === 'frp') {
             setDownloadChannel(data.downloadChannel);
           }
@@ -1798,6 +1799,9 @@ export default function Home() {
             <h1 className="text-xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>成都七中STA · 科协网盘</h1>
             <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>未来梦在线阅读平台</p>
           </div>
+          {(announcements || []).filter((a: any) => a.active && (a.displayLocation === "login" || a.displayLocation === "all")).map((a: any) => (
+            <div key={a.id} className="mb-4 px-4 py-3 rounded-xl text-xs font-medium text-center border border-amber-200 bg-amber-50 text-amber-700">{a.content}</div>
+          ))}
           <div className="space-y-3">
             <input
               type="text"
@@ -2575,7 +2579,7 @@ export default function Home() {
                     onClick={() => {
                       const content = adminSettings.announcement || '';
                       adminAction('updateSettings', { settings: { announcement: content } });
-                      setGlobalAnnouncement(content);
+                      setAnnouncements([{ id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2), content, active: true, targetAudience: "all", displayLocation: "all", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]);
                       logUserAction('公告发布', content.substring(0, 100));
                       setAlistMsg('✅ 公告已成功发布');
                     }}
@@ -3418,21 +3422,16 @@ export default function Home() {
         <div className="max-w-4xl mx-auto animate-in">
 
           {/* 告示板 */}
-          {globalAnnouncement && (
-            <div className="mb-6 p-5 rounded-2xl border-2 border-blue-200 bg-blue-50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden">
-              {/* 背景装饰 */}
+          {(announcements || []).filter((a: any) => a.active && (!a.displayLocation || a.displayLocation === "all" || a.displayLocation === "main")).map((a: any) => (
+            <div key={a.id} className="mb-6 p-5 rounded-2xl border-2 border-blue-200 bg-blue-50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden">
               <div className="absolute top-0 right-0 w-48 h-48 bg-blue-200/50 rounded-full -mr-24 -mt-24 blur-3xl"></div>
-              
               <div className="flex items-center gap-2 mb-3 relative z-10">
                 <span className="flex items-center justify-center w-6 h-6 bg-blue-500 rounded-full text-[12px] shadow-lg shadow-blue-200 text-white">📢</span>
                 <span className="text-[12px] font-black text-blue-800 uppercase tracking-[0.2em]">公告</span>
               </div>
-              
-              <div className="text-[14px] text-zinc-800 font-medium whitespace-pre-wrap leading-relaxed px-1 relative z-10 drop-shadow-sm">
-                {globalAnnouncement}
-              </div>
+              <div className="text-[14px] text-zinc-800 font-medium whitespace-pre-wrap leading-relaxed px-1 relative z-10 drop-shadow-sm">{a.content}</div>
             </div>
-          )}
+          ))}
 
           {/* 文件浏览器卡片 */}
           <div className="glass rounded-2xl overflow-hidden relative"
