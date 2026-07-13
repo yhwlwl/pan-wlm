@@ -64,7 +64,7 @@ export default function Settings() {
 
   const chPw = async () => {
     if (!adminPw) { showMsg("请输入当前密码"); return; }
-    const ok = await adminAction("changeAdminPassword", { password: adminPw, newPassword: newAdminPw });
+    const ok = await adminAction("changeAdminPassword", { password: newAdminPw });
     if (ok) { setAdminPw(""); setNewAdminPw(""); showMsg("密码已修改"); }
   };
 
