@@ -33,12 +33,13 @@ const TABS: { key: string; label: string; sectionKey: string; permKey?: string }
 function MgContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { isAdmin, canView, loading } = useAdmin();
+  const { isAdmin, canView, userPerms, loading } = useAdmin();
   const tab = searchParams.get("tab") || "overview";
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const visibleTabs = TABS.filter((t) => {
     if (isAdmin) return true;
+    if (t.sectionKey === "mgFilePerms" && !userPerms?.controlFile) return false;
     return canView(t.sectionKey);
   });
 
