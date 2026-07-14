@@ -10,6 +10,14 @@ const FORCE_BASE_PATH = (process.env.NEXT_PUBLIC_FORCE_BASE_PATH || '').replace(
 // 站点标识（管理面板按此过滤数据）
 const APP_SOURCE = process.env.NEXT_PUBLIC_APP_SOURCE || 'weilaimeng';
 
+const ANN_COLORS: Record<string, { border: string; bg: string; glow: string; circle: string; shadow: string; title: string; login: string }> = {
+  blue:    { border: 'border-blue-200', bg: 'bg-blue-50', glow: 'bg-blue-200/50', circle: 'bg-blue-500', shadow: 'shadow-blue-200', title: 'text-blue-800', login: 'border-blue-200 bg-blue-50 text-blue-700' },
+  amber:   { border: 'border-amber-200', bg: 'bg-amber-50', glow: 'bg-amber-200/50', circle: 'bg-amber-500', shadow: 'shadow-amber-200', title: 'text-amber-800', login: 'border-amber-200 bg-amber-50 text-amber-700' },
+  green:   { border: 'border-green-200', bg: 'bg-green-50', glow: 'bg-green-200/50', circle: 'bg-green-500', shadow: 'shadow-green-200', title: 'text-green-800', login: 'border-green-200 bg-green-50 text-green-700' },
+  red:     { border: 'border-red-200', bg: 'bg-red-50', glow: 'bg-red-200/50', circle: 'bg-red-500', shadow: 'shadow-red-200', title: 'text-red-800', login: 'border-red-200 bg-red-50 text-red-700' },
+  purple:  { border: 'border-purple-200', bg: 'bg-purple-50', glow: 'bg-purple-200/50', circle: 'bg-purple-500', shadow: 'shadow-purple-200', title: 'text-purple-800', login: 'border-purple-200 bg-purple-50 text-purple-700' },
+};
+
 type Role = 'admin' | 'manager' | 'guest';
 type Theme = 'light' | 'dark';
 
@@ -1799,9 +1807,10 @@ export default function Home() {
             <h1 className="text-xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>成都七中STA · 科协网盘</h1>
             <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>未来梦在线阅读平台</p>
           </div>
-          {(announcements || []).filter((a: any) => a.active && (a.displayLocation === "login" || a.displayLocation === "all")).map((a: any) => (
-            <div key={a.id} className="mb-4 px-4 py-3 rounded-xl text-xs font-medium text-center border border-amber-200 bg-amber-50 text-amber-700">{a.content}</div>
-          ))}
+          {(announcements || []).filter((a: any) => a.active && (a.displayLocation === "login" || a.displayLocation === "all")).map((a: any) => {
+            const c = ANN_COLORS[a.color as keyof typeof ANN_COLORS] || ANN_COLORS.blue;
+            return (<div key={a.id} className={`mb-4 px-4 py-3 rounded-xl text-xs font-medium text-center border ${c.login}`}>{a.content}</div>);
+          })}
           <div className="space-y-3">
             <input
               type="text"
@@ -3422,16 +3431,18 @@ export default function Home() {
         <div className="max-w-4xl mx-auto animate-in">
 
           {/* 告示板 */}
-          {(announcements || []).filter((a: any) => a.active && (!a.displayLocation || a.displayLocation === "all" || a.displayLocation === "main")).map((a: any) => (
-            <div key={a.id} className="mb-6 p-5 rounded-2xl border-2 border-blue-200 bg-blue-50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-blue-200/50 rounded-full -mr-24 -mt-24 blur-3xl"></div>
+          {(announcements || []).filter((a: any) => a.active && (!a.displayLocation || a.displayLocation === "all" || a.displayLocation === "main")).map((a: any) => {
+            const c = ANN_COLORS[a.color as keyof typeof ANN_COLORS] || ANN_COLORS.blue;
+            return (
+            <div key={a.id} className={`mb-6 p-5 rounded-2xl border-2 ${c.border} ${c.bg} shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden`}>
+              <div className={`absolute top-0 right-0 w-48 h-48 ${c.glow} rounded-full -mr-24 -mt-24 blur-3xl`}></div>
               <div className="flex items-center gap-2 mb-3 relative z-10">
-                <span className="flex items-center justify-center w-6 h-6 bg-blue-500 rounded-full text-[12px] shadow-lg shadow-blue-200 text-white">📢</span>
-                <span className="text-[12px] font-black text-blue-800 uppercase tracking-[0.2em]">公告</span>
+                <span className={`flex items-center justify-center w-6 h-6 ${c.circle} rounded-full text-[12px] shadow-lg ${c.shadow} text-white`}>📢</span>
+                <span className={`text-[12px] font-black ${c.title} uppercase tracking-[0.2em]`}>公告</span>
               </div>
               <div className="text-[14px] text-zinc-800 font-medium whitespace-pre-wrap leading-relaxed px-1 relative z-10 drop-shadow-sm">{a.content}</div>
             </div>
-          ))}
+          )})}
 
           {/* 文件浏览器卡片 */}
           <div className="glass rounded-2xl overflow-hidden relative"
