@@ -908,3 +908,4 @@ cd /www/wwwroot/bd-pan && git pull && npm run build && pm2 restart bdpan
 | 6 | 文件权限规则预览依赖 alist search 索引 | 搜索不到文件（需管理员建索引） | 提示用户检查 AList 搜索索引 |
 | 7 | 并发下载限制 6 | 大文件夹打包慢 | ECS 上可调大到 10+ |
 
+
