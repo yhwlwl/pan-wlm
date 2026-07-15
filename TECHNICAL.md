@@ -368,7 +368,52 @@ curl -I https://pan.tantantan.tech/wlm-api/api/global-settings
 
 ---
 
-## 14. 已知限制
+## 14. 安全审计
+
+### 历史漏洞
+
+| # | 漏洞 | 严重度 | 状态 | 修复 commit |
+|:-|------|:------:|:----:|:-----------:|
+| 1 | AList 管理 Token 泄露 — manager 可获取 AList admin JWT，进而读取百度网盘存储凭证 | 🔴 Critical 9.9 | ✅ 已修复 | `e255e06` |
+| 2 | 默认 JWT 密钥 — `ADMIN_TOKEN_SECRET` 未设置时 fallback 到 `default-secret-change-me`，可伪造任意身份 | 🔴 High 7.5 | ⚠️ 需确认 env | — |
+| 3 | viewer.html 硬编码后端 URL/路径/签名 — 暴露 `pan.tantantan.tech` 域名和文件存储结构 | 🟡 Medium 5.3 | ✅ 已修复 | `e255e06` |
+
+### 误报
+
+| # | 报告内容 | 实情 |
+|:-|---------|------|
+| 1 | `/api/global-settings` 无认证泄露配置 | 公开 API，只返回 UI 开关量，不是漏洞 |
+| 2 | JWT 签名验证绕过，可任意伪造 token | 测试者用了无需鉴权的 `/api/check-risk`。`_auth.ts` 第 72-75 行明确做 HMAC 验证 |
+| 3 | `alist-download` 绕过 PDF 预览保护 | 下载 API 本意就是下载，预览保护靠权限不靠隐藏 |
+| 4 | Manager 可访问 admin API（BFLA） | 设计如此，按 `mgPermissions` 粒度控制，不是漏洞 |
+
+### 修复详情
+
+**漏洞 1：AList Token 泄露**
+- 文件：`src/app/api/alist-token/route.ts`
+- 修复前：任何有 `upload` 权限的用户可获取 AList admin JWT
+- 修复后：仅 `admin` 角色可调用
+- 部署后需重启 AList：`docker restart alist`
+
+**漏洞 3：硬编码 URL**
+- 文件：`public/pdfjs/viewer.html`
+- 修复前：fallback URL 暴露 `pan.tantantan.tech` 域名和 AList 签名
+- 修复后：无参数时显示"未指定文件"
+
+### 安全核查清单
+
+| # | 措施 | 位置 |
+|:-|------|------|
+| 1 | JWT 签名密钥 | `ADMIN_TOKEN_SECRET`（`.env.local`），**必须修改默认值** |
+| 2 | PostgREST 保护 | Nginx `/db/` + `X-Db-Token` 验证 |
+| 3 | PDF 防盗链 | `/pdf-preview/` + sign 参数（主）+ Referer 检查（辅） |
+| 4 | IP + 设备双维度封禁 | `checkEntityBanned()` 双重检查 |
+| 5 | 操作日志 | 所有请求记录 IP、地理位置、设备码 |
+| 6 | 风控评分系统 | deny 事件自动评分/衰减/去重，全部可配置 |
+| 7 | iat 踢出机制 | `tokenInvalidBefore` 即时踢出所有非 admin |
+| 8 | alist-token | 仅 admin 可获取 |
+
+## 15. 已知限制
 
 | # | 问题 | 改进方向 |
 |---|------|----------|
