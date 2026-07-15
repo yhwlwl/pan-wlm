@@ -40,7 +40,7 @@ GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
 const key=(new URL(location.href)).searchParams.get('key')||'';
 const file=(new URL(location.href)).searchParams.get('file')||'';
 let pdfUrl=key?sessionStorage.getItem(key)||'':decodeURIComponent(file||'');
-if(!pdfUrl){pdfUrl='https://pan.tantantan.tech/pdf-preview/sta/新媒体素材/可复用文件收集/未来梦扫描件/《未来梦》Vol.20.pdf?sign=ZgQCQ-LbsGyKIZhKt9_uCDkoxF_hbzi_R41XBTBZHPo=:0'}
+if(!pdfUrl){wrapper.innerHTML='<div style="color:#999;text-align:center;padding:40px;font-size:14px">未指定文件</div>';return}
 if(key)sessionStorage.removeItem(key);
 document.title=decodeURIComponent(pdfUrl.split('/').pop()||'PDF');
 
